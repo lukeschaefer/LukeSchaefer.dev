@@ -1,6 +1,6 @@
 ---
 title: 'MP4Tag.com'
-description: 'Lorem ipsum dolor sit amet'
+available: true
 pubDate: 'December 2016'
 heroImage: '/hero/mp4tag.png'
 ---

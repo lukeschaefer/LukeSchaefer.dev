@@ -7,7 +7,7 @@ import { getCollection } from 'astro:content';
 import GeneralDate from '../../components/GeneralDate.astro';
 
 const posts = (await getCollection('projects')).sort(
-	(a, b) => a.data.pubDate.valueOf() - b.data.pubDate.valueOf()
+	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
 );
 ---
 
@@ -69,6 +69,23 @@ const posts = (await getCollection('projects')).sort(
 					text-align: center;
 				}
 			}
+
+            a.notready {
+                filter: saturate(0.2);
+                position: relative;
+            }
+
+            a.notready:hover::after {
+                content: "COMING SOON";
+                position: absolute;
+                top: 55px;
+                color: white;
+                width: 100%;
+                text-align: center;
+                font-size: 2rem;
+                text-shadow: 0px 2px 8px black,  0px 0px 18px black;
+
+            }
 		</style>
 	</head>
 	<body>
@@ -76,14 +93,14 @@ const posts = (await getCollection('projects')).sort(
 		<main>
 			<h2>Projects</h2>
 			<p>
-                Non exhaustive list of projects I've made, with associated write-ups.
+                Some projects I've made - planning to do writeups for each one of these.
             </p>
 			<section>
 				<ul>
 					{
 						posts.map((post) => (
 							<li>
-								<a href={`/projects/${post.slug}/`}>
+								<a href={`/projects/${post.slug}/`} class:list={{'notready' : !post.data.available}}>
 									<img width={720} height={360} src={post.data.heroImage} alt="" />
 									<h4 class="title">{post.data.title}</h4>
 									<p class="date">
