@@ -5,6 +5,7 @@
  */
 
 :root {
+	--background: #FFF0C0;
 	--accent: #458208;
 	--accent-dark: #395208;
 	--black: 15, 18, 25;
@@ -34,7 +35,7 @@ body {
 	margin: 0;
 	padding: 0;
 	text-align: left;
-	background: linear-gradient(var(--gray-gradient)) no-repeat;
+	background: var(--background);
 	background-size: 100% 600px;
 	word-wrap: break-word;
 	overflow-wrap: break-word;

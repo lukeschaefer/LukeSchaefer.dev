@@ -3,14 +3,31 @@ const today = new Date();
 ---
 
 <footer>
-	&copy; {today.getFullYear()} Luke Schaefer. All rights reserved.
+	<div id="gradient"></div>
 </footer>
 <style>
 	footer {
-		padding: 1em 1em 0em 1em;
-		background: linear-gradient(var(--gray-gradient)) no-repeat;
-		color: rgb(var(--gray));
+		position: fixed;
+		bottom: 0px;
+		width: 100%;
+		left: 0;
+		color: #120c;
 		text-align: center;
+		font-size: .8rem;
+		pointer-events: none;
+		height: max(70vh, 600px);
+		background: url('palms.png');
+		background-size: min(160px, 30vw);
+		opacity: .1;
+		z-index: -1;
+	}
+	#gradient {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: min(50vh, 400px);
+		background: linear-gradient(var(--background), transparent)
 	}
 	.social-links {
 		display: flex;
@@ -20,7 +37,7 @@ const today = new Date();
 	}
 	.social-links a {
 		text-decoration: none;
-		color: rgb(var(--gray));
+		color: #120c;
 	}
 	.social-links a:hover {
 		color: rgb(var(--gray-dark));
