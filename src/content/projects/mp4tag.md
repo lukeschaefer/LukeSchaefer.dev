@@ -1,9 +1,10 @@
 ---
-title: 'MP4Tag.com'
+title: 'Tagger.audio'
 available: true
-description: 'none'
+description: 'Built right after college, small utility for editing metadata in binary files, all clientside in the browser. Not sure if it still even works.'
 pubDate: 'December 2016'
 heroImage: '/hero/mp4tag.png'
+link: "https://mp4tag.com"
 ---
 
 In college I listened to music with a free <a href="https://pandora.com">Pandora</a> account. In my Junior year (2013-2014) I decided to put my newfound knowledge in Web Development to practical use. I created a Chrome extension that would view middleman the network requests on the Pandora site and download them to my machine automatically... Nowadays I pay for a Youtube Music subscription, and I never published this code.

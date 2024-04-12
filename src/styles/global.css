@@ -5,8 +5,8 @@
  */
 
 :root {
-	--background: #FFF0C0;
-	--accent: #458208;
+	--background: #16211c;
+	--accent: yellow;
 	--accent-dark: #395208;
 	--black: 15, 18, 25;
 	--gray: 96, 115, 159;
@@ -39,7 +39,7 @@ body {
 	background-size: 100% 600px;
 	word-wrap: break-word;
 	overflow-wrap: break-word;
-	color: rgb(var(--gray-dark));
+	color: #fffc;
 	font-size: 20px;
 	line-height: 1.7;
 	min-height: 95vh;
@@ -60,7 +60,7 @@ h4,
 h5,
 h6 {
 	margin: 0 0 0.5rem 0;
-	color: rgb(var(--black));
+	color: white;
 	line-height: 1.2;
 }
 h1 {

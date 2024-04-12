@@ -1,118 +1,124 @@
 ---
-import BaseHead from '../../components/BaseHead.astro';
-import Header from '../../components/Header.astro';
-import Footer from '../../components/Footer.astro';
-import { SITE_TITLE, SITE_DESCRIPTION } from '../../consts';
-import { getCollection } from 'astro:content';
-import GeneralDate from '../../components/GeneralDate.astro';
+import BaseHead from "../../components/BaseHead.astro";
+import Header from "../../components/Header.astro";
+import Footer from "../../components/Footer.astro";
+import { SITE_TITLE, SITE_DESCRIPTION } from "../../consts";
+import { getCollection } from "astro:content";
+import GeneralDate from "../../components/GeneralDate.astro";
 
-const posts = (await getCollection('projects')).sort(
-	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
+const posts = (await getCollection("projects")).sort(
+  (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
 );
 ---
 
 <!doctype html>
 <html lang="en">
-	<head>
-		<BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
-		<style>
-			main {
-				width: 960px;
-			}
-			ul {
-				display: flex;
-				flex-wrap: wrap;
-				gap: 2rem;
-				list-style-type: none;
-				margin: 0;
-				padding: 0;
-			}
-			ul li {
-				width: calc(50% - 1rem);
-			}
-			ul li * {
-				text-decoration: none;
-				transition: 0.2s ease;
-			}
-			ul li img {
-				margin-bottom: 0.5rem;
-				border-radius: 12px;
-			}
-			ul li a {
-				display: block;
-			}
-			.title {
-				margin: 0;
-				color: rgb(var(--black));
-				line-height: 1;
-			}
-			img {
-				object-fit:cover;
-			}
-			.date {
-				margin: 0;
-				color: rgb(var(--gray));
-			}
-			ul li a:hover h4,
-			ul li a:hover .date {
-				color: rgb(var(--accent));
-			}
-			ul a:hover img {
-				box-shadow: var(--box-shadow);
-			}
-			@media (max-width: 720px) {
-				ul {
-					gap: 0.5em;
-				}
-				ul li {
-					width: 100%;
-					text-align: center;
-				}
-			}
+  <head>
+    <BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
+    <style>
+      main {
+        width: 960px;
+      }
+      ul {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+        list-style-type: none;
+        margin: 0;
+        padding: 0;
+        margin-top: 20px;
+      }
+  
+      ul li * {
+        text-decoration: none;
+        transition: 0.2s ease;
+      }
+      ul li img {
+        margin-bottom: 0.5rem;
+        border-radius: 12px;
+      }
+      ul li a {
+        display: flex;
+        flex-direction: row;
+      }
+      .title {
+        margin: 0;
+        color: white;
+        line-height: 1;
+      }
+      img {
+        object-fit: cover;
+        width: min(300px, 30vw);
+        margin-right: 20px;
+      }
+      .date {
+        margin: 0;
+        color: rgb(var(--gray));
+      }
+      ul li a:hover h4,
+      ul li a:hover .date {
+        color: rgb(var(--accent));
+      }
+      ul a:hover img {
+        box-shadow: 0px 2px 16px yellow;
+      }
+      @media (max-width: 720px) {
+        ul {
+          gap: 0.5em;
+        }
+        ul li {
+          width: 100%;
+          text-align: center;
+        }
+      }
 
-            a.notready {
-                filter: saturate(0.2);
-                position: relative;
-            }
+      a.notready {
+        filter: saturate(0.2);
+        position: relative;
+      }
 
-            a.notready:hover::after {
-                content: "COMING SOON";
-                position: absolute;
-                top: 55px;
-                color: white;
-                width: 100%;
-                text-align: center;
-                font-size: 2rem;
-                text-shadow: 0px 2px 8px black,  0px 0px 18px black;
-
-            }
-		</style>
-	</head>
-	<body>
-		<Header />
-		<main>
-			<h2>Projects</h2>
-			<p>
-                Some projects I've made - planning to do writeups for each one of these.
-            </p>
-			<section>
-				<ul>
-					{
-						posts.map((post) => (
-							<li>
-								<a href={`/projects/${post.slug}/`} class:list={{'notready' : !post.data.available}}>
-									<img width={720} height={360} src={post.data.heroImage} alt="" />
-									<h4 class="title">{post.data.title}</h4>
-									<p class="date">
-										<GeneralDate date={post.data.pubDate} />
-									</p>
-								</a>
-							</li>
-						))
-					}
-				</ul>
-			</section>
-		</main>
-		<Footer />
-	</body>
+      .description {
+        color: #fffe;
+      }
+    </style>
+  </head>
+  <body>
+    <Header />
+    <main>
+      <h2>Projects</h2>
+      <p>
+        Many of these are WIP or never finished, feel free to check them out.
+      </p>
+      <section>
+        <ul>
+          {
+            posts.map((post) => (
+              <li>
+                <a
+                  href={post.data.link ? post.data.link : `/projects/${post.slug}/`}
+                >
+                  <img
+                    width={720}
+                    height={360}
+                    src={post.data.heroImage}
+                    alt=""
+                  />
+                  <section class="details">
+                    <h4 class="title">{post.data.title}</h4>
+                    <p class="date">
+                      <GeneralDate date={post.data.pubDate} />
+                    </p>
+                    <p class="description">
+                      {post.data.description}  
+                    </p>
+                  </section>
+                </a>
+              </li>
+            ))
+          }
+        </ul>
+      </section>
+    </main>
+    <Footer />
+  </body>
 </html>
