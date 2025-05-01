@@ -1,0 +1,38 @@
+---
+import PostPreview from "@/components/blog/PostPreview.astro";
+import { getAllPosts } from "@/data/post";
+import PageLayout from "@/layouts/Base.astro";
+import { collectionDateSort } from "@/utils/date";
+import { type CollectionEntry } from "astro:content";
+
+// Posts
+const MAX_POSTS = 10;
+const allPosts = await getAllPosts();
+const allPostsByDate = allPosts
+	.sort(collectionDateSort)
+	.slice(0, MAX_POSTS) as CollectionEntry<"post">[];
+
+---
+
+<PageLayout meta={{ title: "Home" }}>
+	<section>
+		<p class="mb-6">
+			Hi, I'm Luke - you might know me as the creator of <b><u><a href="https://monkeys.zip">monkeys.zip</a></u></b>
+			or from some of my other <a href="/projects"><b><u>projects</u></b>.</a> I like making things that make people happy.
+		</p>
+		<!-- <SocialList /> -->
+	</section>
+	<section class="mt-12">
+		<h2 class="title text-accent mb-6 text-xl"><a href="/posts/">Posts</a></h2>
+		<ul class="space-y-4" role="list">
+			{
+				allPostsByDate.map((p) => (
+					<li class="grid gap-2 sm:grid-cols-[auto_1fr]">
+						<PostPreview post={p} />
+					</li>
+				))
+			}
+		</ul>
+	</section>
+
+</PageLayout>

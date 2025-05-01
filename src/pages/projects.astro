@@ -1,0 +1,42 @@
+---
+import PageLayout from "@/layouts/Base.astro";
+
+const meta = {
+	description: "Oops! It looks like this page is lost in space!",
+	title: "Oops! You found a missing page!",
+};
+---
+
+<PageLayout meta={meta}>
+	<h1 class="title mb-6 accent-color">Projects</h1>
+	<a class="mt-8 mb-2 block text-pink-600" href="https://monkeys.zip">
+        monkeys.zip
+    </a>
+    <p>
+        Crowdsourced simulation and visualization of the Infinite Monkey Theorem
+    </p>
+    <a class="mt-8  mb-2  block text-pink-600" href="https://hn.zip">
+        hn.zip
+    </a>
+    <p>
+        Hacker News proxy built for speed and usage on flakey networks
+    </p>
+    <a class="mt-8  mb-2 block text-pink-600" href="https://deadlock.zip">
+        deadlock.zip
+    </a>
+    <p>
+        Recreation of in-game tools for Deadlock
+    </p>
+    <a class="mt-8  mb-2 block text-pink-600" href="https://github.com/lukeschaefer/WorkerBee">
+        WorkerBee
+    </a>
+    <p>
+        Minimal TypeScript library to make using Web Workers as easy as possible
+    </p>
+    <a class="mt-8  mb-2 block text-pink-600" href="https://github.com/lukeschaefer/mp4edit">
+        mp4edit
+    </a>
+    <p>
+        Micro library for parsing and editing mp4 metadata in pure JS
+    </p>
+</PageLayout>
