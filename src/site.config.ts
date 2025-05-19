@@ -20,9 +20,9 @@ export const siteConfig: SiteConfig = {
 	// Meta property, found in src/components/BaseHead.astro L:42
 	ogLocale: "en_US",
 	// Used to construct the meta title property found in src/components/BaseHead.astro L:11, and webmanifest name found in astro.config.ts L:42
-	title: "LukeSchaefer.dev",
+	title: "luke.zip",
 	// ! Please remember to replace the following site property with your own domain, used in astro.config.ts
-	url: "https://lukeschaefer.dev/",
+	url: "https://luke.zip/",
 };
 
 // Used to generate links in both the Header & Footer.
