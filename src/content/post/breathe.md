@@ -1,7 +1,8 @@
 ---
 title: "Breathe.zip"
 description: "This post is an example of how to add a cover/hero image"
-publishDate: "5 August 25"
+publishDate: "05 August 25"
+updatedDate: "05 August 25"
 tags: ["zip"]
 ---
 
