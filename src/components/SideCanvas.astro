@@ -1,0 +1,328 @@
+---
+---
+
+<canvas id="side-canvas" class="side-canvas"></canvas>
+
+<style>
+	.side-canvas {
+		position: static;
+		top: auto;
+		left: auto;
+		right: auto;
+		width: calc(100vw - 40px);
+		height: 60px;
+		cursor: grab;
+	}
+
+	.side-canvas:active {
+		cursor: grabbing;
+	}
+
+	@media (min-width: 1000px) {
+		.side-canvas {
+			position: absolute;
+			top: 40px;
+			left: auto;
+			right: calc(100% + 22px);
+			width: 80px;
+			height: calc(100vh - 80px);
+		}
+	}
+</style>
+
+<script>
+	(function() {
+		const canvasElement = document.getElementById('side-canvas');
+		if (!canvasElement) throw new Error('Canvas not found');
+		const canvas = canvasElement as HTMLCanvasElement;
+		
+		const context = canvas.getContext('2d');
+		if (!context) throw new Error('Could not get 2d context');
+		const ctx = context;
+
+	const zipperImg = new Image();
+	zipperImg.src = '/zipper.png';
+
+	let isHovering = false;
+	let isDragging = false;
+	const imgSize = 40;
+	let imgWidth = 40;
+	let imgHeight = 0;
+	let imgX = 0;
+	let imgY = 0;
+	let dragStart = 0;
+	let initialImgPos = 0;
+	let isHorizontal = false;
+
+	const mediaQuery = window.matchMedia('(min-width: 1000px)');
+	
+	function getIsHorizontal() {
+		return !mediaQuery.matches;
+	}
+
+	function resizeCanvas() {
+		// Clear inline styles so CSS can apply
+		canvas.style.width = '';
+		canvas.style.height = '';
+
+		// Now get dimensions from CSS
+		const rect = canvas.getBoundingClientRect();
+		const dpr = window.devicePixelRatio || 1;
+
+		// Set canvas internal resolution
+		canvas.width = rect.width * dpr;
+		canvas.height = rect.height * dpr;
+
+		ctx.scale(dpr, dpr);
+
+		isHorizontal = getIsHorizontal();
+
+		if (zipperImg.complete && zipperImg.naturalWidth > 0) {
+			const aspectRatio = zipperImg.naturalHeight / zipperImg.naturalWidth;
+			
+			// Always calculate based on the original orientation
+			const baseWidth = imgSize;
+			const baseHeight = imgSize * aspectRatio;
+			
+			if (isHorizontal) {
+				// When rotated 90deg, width becomes height and vice versa
+				imgWidth = baseHeight;
+				imgHeight = baseWidth;
+				imgY = (rect.height - imgHeight) / 2;
+				if (imgX < 10) imgX = 10;
+			} else {
+				imgWidth = baseWidth;
+				imgHeight = baseHeight;
+				imgX = (rect.width - imgWidth) / 2;
+				if (imgY < 40) imgY = 40;
+			}
+		}
+	}
+
+	function isPointInImage(x: number, y: number) {
+		return x >= imgX && x <= imgX + imgWidth && y >= imgY && y <= imgY + imgHeight;
+	}
+
+	function draw() {
+		const rect = canvas.getBoundingClientRect();
+		const displayWidth = rect.width;
+		const displayHeight = rect.height;
+
+		ctx.clearRect(0, 0, displayWidth, displayHeight);
+
+		const lineWidth = 2;
+		const dashSpacing = 4;
+		const dashLength = 3;
+		const sideOffset = 8;
+
+		if (isHorizontal) {
+			const centerY = displayHeight / 2;
+
+			// Main horizontal black line
+			ctx.strokeStyle = '#000';
+			ctx.lineWidth = lineWidth;
+			ctx.beginPath();
+			ctx.moveTo(0, centerY);
+			ctx.lineTo(imgX, centerY);
+			ctx.stroke();
+
+			// Dashed lines above and below
+			ctx.setLineDash([dashLength, dashSpacing]);
+			ctx.lineWidth = 1;
+
+			ctx.beginPath();
+			ctx.moveTo(0, centerY - sideOffset);
+			ctx.lineTo(imgX, centerY - sideOffset);
+			ctx.stroke();
+
+			ctx.beginPath();
+			ctx.moveTo(0, centerY + sideOffset);
+			ctx.lineTo(imgX, centerY + sideOffset);
+			ctx.stroke();
+		} else {
+			const centerX = displayWidth / 2;
+
+			// Main vertical black line
+			ctx.strokeStyle = '#000';
+			ctx.lineWidth = lineWidth;
+			ctx.beginPath();
+			ctx.moveTo(centerX, 0);
+			ctx.lineTo(centerX, imgY);
+			ctx.stroke();
+
+			// Dashed lines on either side
+			ctx.setLineDash([dashLength, dashSpacing]);
+			ctx.lineWidth = 1;
+
+			ctx.beginPath();
+			ctx.moveTo(centerX - sideOffset, 0);
+			ctx.lineTo(centerX - sideOffset, imgY);
+			ctx.stroke();
+
+			ctx.beginPath();
+			ctx.moveTo(centerX + sideOffset, 0);
+			ctx.lineTo(centerX + sideOffset, imgY);
+			ctx.stroke();
+		}
+
+		ctx.setLineDash([]);
+
+		if (zipperImg.complete && zipperImg.naturalWidth > 0) {
+			if (isHovering || isDragging) {
+				ctx.shadowOffsetX = isHorizontal ? 4 : 0;
+				ctx.shadowOffsetY = isHorizontal ? 0 : 4;
+				ctx.shadowBlur = 8;
+				ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+			} else {
+				ctx.shadowOffsetX = 0;
+				ctx.shadowOffsetY = 0;
+				ctx.shadowBlur = 0;
+				ctx.shadowColor = 'transparent';
+			}
+
+			if (isHorizontal) {
+				ctx.save();
+				ctx.translate(imgX + imgWidth / 2, imgY + imgHeight / 2);
+				ctx.rotate(-Math.PI / 2);
+				// Draw at original aspect ratio (height becomes width after rotation)
+				ctx.drawImage(zipperImg, -imgHeight / 2, -imgWidth / 2, imgHeight, imgWidth);
+				ctx.restore();
+			} else {
+				ctx.drawImage(zipperImg, imgX, imgY, imgWidth, imgHeight);
+			}
+		}
+	}
+
+	function handleMouseMove(e: MouseEvent) {
+		const rect = canvas.getBoundingClientRect();
+		const x = e.clientX - rect.left;
+		const y = e.clientY - rect.top;
+		
+		if (isDragging) {
+			if (isHorizontal) {
+				const deltaX = x - dragStart;
+				imgX = Math.max(10, initialImgPos + deltaX);
+			} else {
+				const deltaY = y - dragStart;
+				imgY = Math.max(40, initialImgPos + deltaY);
+			}
+			draw();
+		} else {
+			const wasHovering = isHovering;
+			isHovering = isPointInImage(x, y);
+			
+			if (wasHovering !== isHovering) {
+				canvas.style.cursor = isHovering ? 'grab' : 'default';
+				draw();
+			}
+		}
+	}
+
+	function handleMouseDown(e: MouseEvent) {
+		const rect = canvas.getBoundingClientRect();
+		const x = e.clientX - rect.left;
+		const y = e.clientY - rect.top;
+		
+		if (isPointInImage(x, y)) {
+			isDragging = true;
+			dragStart = isHorizontal ? x : y;
+			initialImgPos = isHorizontal ? imgX : imgY;
+			canvas.style.cursor = 'grabbing';
+			e.preventDefault();
+		}
+	}
+
+	function handleMouseUp() {
+		if (isDragging) {
+			isDragging = false;
+			canvas.style.cursor = isHovering ? 'grab' : 'default';
+		}
+	}
+
+	function handleMouseLeave() {
+		if (isDragging) {
+			isDragging = false;
+		}
+		if (isHovering) {
+			isHovering = false;
+			draw();
+		}
+		canvas.style.cursor = 'default';
+	}
+
+	function handleTouchStart(e: TouchEvent) {
+		const rect = canvas.getBoundingClientRect();
+		const touch = e.touches[0];
+		if (!touch) return;
+		const x = touch.clientX - rect.left;
+		const y = touch.clientY - rect.top;
+		
+		if (isPointInImage(x, y)) {
+			isDragging = true;
+			dragStart = isHorizontal ? x : y;
+			initialImgPos = isHorizontal ? imgX : imgY;
+			e.preventDefault();
+		}
+	}
+
+	function handleTouchMove(e: TouchEvent) {
+		if (!isDragging) return;
+		
+		const rect = canvas.getBoundingClientRect();
+		const touch = e.touches[0];
+		if (!touch) return;
+		const x = touch.clientX - rect.left;
+		const y = touch.clientY - rect.top;
+		
+		if (isHorizontal) {
+			const deltaX = x - dragStart;
+			imgX = Math.max(10, initialImgPos + deltaX);
+		} else {
+			const deltaY = y - dragStart;
+			imgY = Math.max(40, initialImgPos + deltaY);
+		}
+		draw();
+		e.preventDefault();
+	}
+
+	function handleTouchEnd() {
+		if (isDragging) {
+			isDragging = false;
+		}
+	}
+
+	zipperImg.onload = () => {
+		resizeCanvas();
+		draw();
+	};
+
+	canvas.addEventListener('mousemove', handleMouseMove);
+	canvas.addEventListener('mousedown', handleMouseDown);
+	canvas.addEventListener('mouseup', handleMouseUp);
+	canvas.addEventListener('mouseleave', handleMouseLeave);
+	canvas.addEventListener('touchstart', handleTouchStart);
+	canvas.addEventListener('touchmove', handleTouchMove);
+	canvas.addEventListener('touchend', handleTouchEnd);
+
+	resizeCanvas();
+	draw();
+
+	function handleResize() {
+		resizeCanvas();
+		draw();
+	}
+
+	window.addEventListener('resize', handleResize);
+	window.addEventListener('orientationchange', handleResize);
+
+	// Listen for media query changes (when crossing 1000px breakpoint)
+	mediaQuery.addEventListener('change', handleResize);
+
+	// Watch the canvas element itself for size changes
+	const resizeObserver = new ResizeObserver(() => {
+		resizeCanvas();
+		draw();
+	});
+	resizeObserver.observe(canvas);
+	})();
+</script>
