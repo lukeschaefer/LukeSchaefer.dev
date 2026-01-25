@@ -76,4 +76,4 @@ While most do not automatically linkify ‘luke.zip’ \- Twitter and WhatsApp d
 
 This is annoying, and I think it should be fixed… but I still don’t believe anyone is clicking zip files in tweets and getting phished. They’re certainly not clicking [any of mine](https://x.com/LukeSchaef/status/2015456095209197811) at least, but that’s probably because I have like 20 followers and hardly tweet anything.
 
-Anyway\! What do you think? Should I swap all my domains to be .mov instead?
+Anyway\! [What do you think](https://news.ycombinator.com/item?id=46759858)? Should I swap all my domains to be .mov instead?
