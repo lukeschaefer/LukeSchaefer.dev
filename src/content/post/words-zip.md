@@ -6,4 +6,6 @@ updatedDate: "01 January 26"
 tags: ["zip"]
 ---
 
-Here is [words.zip](https://words.zip) - and Infinite Word Search that anyone can come participate in.
+![words-hero](/words-hero.png)
+
+Here is [words.zip](https://words.zip) - and Infinite Word Search that anyone can come participate in. Launched on January 1st - now has nearly 20,000 words found!
