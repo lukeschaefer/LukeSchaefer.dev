@@ -1,0 +1,99 @@
+---
+/** Show banner through end of 2026-04-16 Pacific (Webby People’s Voice); hide after. */
+const WEBBY_NOTIFY_END_MS = Date.parse("2026-04-17T06:59:59.999Z");
+const showWebbyBanner = Date.now() <= WEBBY_NOTIFY_END_MS;
+---
+
+{
+	showWebbyBanner && (
+		<>
+			<div
+				aria-label="Webby Awards nomination announcement"
+				class="webby-notify-bar bg-accent text-global-bg border-global-bg/20 flex h-12 items-center justify-center border-b text-xs shadow-sm sm:text-sm"
+				id="webby-notify"
+				role="region"
+			>
+				<div class="text-global-bg mx-auto flex h-full w-full max-w-[840px] items-center gap-2 px-4 sm:gap-3 sm:px-8">
+					<p class="text-global-bg/95 min-w-0 flex-1 leading-snug">
+						<a
+							class="text-global-bg font-bold underline-offset-2 hover:underline"
+							href="https://monkeys.zip">Monkeys.zip</a>
+						has been nominated for a
+						<a
+							class="text-global-bg font-bold underline-offset-2 hover:underline"
+							href="https://www.webbyawards.com/">Webby</a>!<br />
+						<span class="text-global-bg/90 mt-0.5 block text-[0.88em] leading-snug">
+							It would mean a lot if you supported it with a single vote!
+						</span>
+					</p>
+					<div class="flex shrink-0 items-center gap-1.5 sm:gap-2">
+						<a
+							class="inline-flex h-7 items-center rounded bg-neutral-950 px-2.5 text-xs font-bold text-white no-underline outline-none hover:opacity-90 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-accent)] sm:px-3"
+							href="https://wbby.co/57647N"
+							rel="noopener noreferrer"
+						>
+							Vote
+						</a>
+						<button
+							aria-label="Dismiss Webby nomination notice"
+							class="text-global-bg/90 hover:text-global-bg focus-visible:ring-global-bg border-global-bg/50 hover:border-global-bg inline-flex h-7 items-center rounded border bg-transparent px-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-accent)] sm:px-2.5"
+							data-webby-dismiss
+							type="button"
+						>
+							Dismiss
+						</button>
+					</div>
+				</div>
+			</div>
+
+			<style>
+				.webby-notify-bar {
+					width: 100vw;
+					margin-left: calc(50% - 50vw);
+				}
+				.webby-notify-bar.is-dismissed {
+					display: none;
+				}
+			</style>
+
+			<script define:vars={{ WEBBY_NOTIFY_END_MS }}>
+				const STORAGE_KEY = "webby-notify-dismissed";
+
+				function initWebbyNotify() {
+					const root = document.getElementById("webby-notify");
+					if (!root) return;
+
+					if (Date.now() > WEBBY_NOTIFY_END_MS) {
+						root.classList.add("is-dismissed");
+						return;
+					}
+
+					if (root.dataset.webbyBound === "1") return;
+					root.dataset.webbyBound = "1";
+
+					const dismissBtn = root.querySelector("[data-webby-dismiss]");
+					try {
+						if (localStorage.getItem(STORAGE_KEY) === "1") {
+							root.classList.add("is-dismissed");
+							return;
+						}
+					} catch {
+						/* ignore */
+					}
+
+					dismissBtn?.addEventListener("click", () => {
+						root.classList.add("is-dismissed");
+						try {
+							localStorage.setItem(STORAGE_KEY, "1");
+						} catch {
+							/* ignore */
+						}
+					});
+				}
+
+				initWebbyNotify();
+				document.addEventListener("astro:after-swap", initWebbyNotify);
+			</script>
+		</>
+	)
+}
