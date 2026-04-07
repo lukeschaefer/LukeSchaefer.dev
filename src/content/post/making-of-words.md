@@ -1,6 +1,6 @@
 ---
 title: "Making of words.zip"
-description: "This post is an example of how to add a cover/hero image"
+description: "How infinite is it really?"
 publishDate: "07 April 26"
 updatedDate: "07 April 26"
 tags: ["zip", "words"]
