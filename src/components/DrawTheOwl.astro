@@ -1,0 +1,356 @@
+---
+const MAX_CIRCLES = 3;
+---
+
+<div class="not-prose my-8 flex w-full max-w-6xl flex-col items-center gap-6" data-owl>
+	<div class="grid w-full gap-5 md:grid-cols-2">
+		<figure class="m-0 flex flex-col gap-1.5">
+			<figcaption class="text-xs font-medium uppercase tracking-wide text-zinc-400">
+				1 · Your circles
+			</figcaption>
+			<canvas
+				data-owl-canvas
+				width="1024"
+				height="1024"
+				class="aspect-square w-full cursor-crosshair touch-none rounded-lg border border-zinc-300 bg-white shadow-sm dark:border-zinc-600"
+			></canvas>
+		</figure>
+
+		<figure class="m-0 flex flex-col gap-1.5">
+			<figcaption class="text-xs font-medium uppercase tracking-wide text-zinc-400">
+				2 · Pencil sketch guide
+			</figcaption>
+			<div class="relative">
+				<canvas
+					data-owl-pencil
+					width="1024"
+					height="1024"
+					class="aspect-square w-full rounded-lg border border-zinc-300 bg-white shadow-sm dark:border-zinc-600"
+				></canvas>
+				<div
+					data-owl-pencil-empty
+					class="absolute inset-0 flex items-center justify-center text-sm text-zinc-400"
+				>
+					Draw circles to preview the sketch
+				</div>
+			</div>
+		</figure>
+	</div>
+
+	<div class="flex w-full flex-wrap items-center justify-between gap-3 text-sm text-zinc-500">
+		<span data-owl-count>0 / {MAX_CIRCLES} circles</span>
+		<div class="flex gap-3">
+			<button data-owl-undo type="button" class="cursor-pointer hover:text-accent disabled:cursor-not-allowed disabled:opacity-40">
+				Undo
+			</button>
+			<button data-owl-clear type="button" class="cursor-pointer hover:text-accent disabled:cursor-not-allowed disabled:opacity-40">
+				Clear
+			</button>
+		</div>
+	</div>
+
+	<button
+		data-owl-compare
+		type="button"
+		class="w-full max-w-md cursor-pointer rounded-md bg-zinc-800 px-4 py-2.5 font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-200 dark:text-zinc-900 dark:hover:bg-white"
+	>
+		Compare models
+	</button>
+
+	<p data-owl-error class="hidden w-full text-center text-sm text-red-500"></p>
+
+	<section class="hidden w-full flex-col gap-3" data-owl-results-section>
+		<h3 class="m-0 text-sm font-medium uppercase tracking-wide text-zinc-400">
+			3 · Model comparison
+		</h3>
+		<div class="mx-auto grid w-full max-w-5xl gap-8 sm:grid-cols-2" data-owl-grid></div>
+	</section>
+</div>
+
+<script>
+	import { pencilfyOwl, type OwlCircle } from "@/utils/pencilfyOwl";
+
+	type Circle = OwlCircle;
+
+	type ModelMeta = { id: string; settings: string };
+
+	type GenerationSuccess = {
+		model: string;
+		image: string;
+		latencyMs: number;
+		cost: number | null;
+		settings: string;
+	};
+
+	const MAX_CIRCLES = 3;
+	const PENCIL = "#374151";
+
+	function formatCost(cost: number | null | undefined): string {
+		if (cost === null || cost === undefined) return "—";
+		if (cost < 0.01) return `$${cost.toFixed(4)}`;
+		return `$${cost.toFixed(3)}`;
+	}
+
+	document.querySelectorAll<HTMLElement>("[data-owl]").forEach((root) => {
+		const canvas = root.querySelector<HTMLCanvasElement>("[data-owl-canvas]");
+		const ctx = canvas?.getContext("2d");
+		const pencilCanvas = root.querySelector<HTMLCanvasElement>("[data-owl-pencil]");
+		if (!canvas || !ctx || !pencilCanvas) return;
+
+		const pencilEmpty = root.querySelector<HTMLElement>("[data-owl-pencil-empty]")!;
+		const resultsSection = root.querySelector<HTMLElement>("[data-owl-results-section]")!;
+		const grid = root.querySelector<HTMLElement>("[data-owl-grid]")!;
+		const countLabel = root.querySelector<HTMLElement>("[data-owl-count]")!;
+		const undoBtn = root.querySelector<HTMLButtonElement>("[data-owl-undo]")!;
+		const clearBtn = root.querySelector<HTMLButtonElement>("[data-owl-clear]")!;
+		const compareBtn = root.querySelector<HTMLButtonElement>("[data-owl-compare]")!;
+		const errorEl = root.querySelector<HTMLElement>("[data-owl-error]")!;
+
+		const circles: Circle[] = [];
+		let start: { x: number; y: number } | null = null;
+		let preview: Circle | null = null;
+		let loading = false;
+		let models: ModelMeta[] = [];
+
+		function strokeEllipse(c: Circle) {
+			ctx!.save();
+			ctx!.strokeStyle = PENCIL;
+			ctx!.lineWidth = 10;
+			ctx!.lineCap = "round";
+			for (let pass = 0; pass < 2; pass++) {
+				const jitter = pass === 0 ? 0 : 3;
+				ctx!.beginPath();
+				ctx!.ellipse(c.cx + jitter, c.cy - jitter, c.rx, c.ry, 0, 0, Math.PI * 2);
+				ctx!.stroke();
+			}
+			ctx!.restore();
+		}
+
+		function render() {
+			ctx!.fillStyle = "#ffffff";
+			ctx!.fillRect(0, 0, canvas!.width, canvas!.height);
+			for (const c of circles) strokeEllipse(c);
+			if (preview) strokeEllipse(preview);
+		}
+
+		function renderPencil() {
+			pencilfyOwl(pencilCanvas!, circles);
+			pencilEmpty.classList.toggle("hidden", circles.length > 0);
+		}
+
+		function syncControls() {
+			countLabel.textContent = `${circles.length} / ${MAX_CIRCLES} circles`;
+			undoBtn.disabled = circles.length === 0 || loading;
+			clearBtn.disabled = circles.length === 0 || loading;
+			compareBtn.disabled = circles.length === 0 || loading;
+		}
+
+		function toCanvasPoint(e: PointerEvent) {
+			const rect = canvas!.getBoundingClientRect();
+			return {
+				x: ((e.clientX - rect.left) / rect.width) * canvas!.width,
+				y: ((e.clientY - rect.top) / rect.height) * canvas!.height,
+			};
+		}
+
+		function buildCircle(a: { x: number; y: number }, b: { x: number; y: number }): Circle {
+			return {
+				cx: (a.x + b.x) / 2,
+				cy: (a.y + b.y) / 2,
+				rx: Math.abs(b.x - a.x) / 2,
+				ry: Math.abs(b.y - a.y) / 2,
+			};
+		}
+
+		function setError(message: string) {
+			errorEl.textContent = message;
+			errorEl.classList.toggle("hidden", !message);
+		}
+
+		function createCard(model: ModelMeta, circlesImage: string): HTMLElement {
+			const card = document.createElement("article");
+			card.className =
+				"not-prose flex flex-col overflow-hidden rounded-lg border border-zinc-300 bg-white shadow-sm dark:border-zinc-600";
+			card.dataset.model = model.id;
+
+			card.innerHTML = `
+				<div class="group relative aspect-square w-full bg-white">
+					<div class="absolute inset-0 flex items-center justify-center p-4 text-center text-sm text-zinc-400" data-card-status>
+						<span class="animate-pulse">Generating…</span>
+					</div>
+					<img alt="" class="absolute inset-0 hidden h-full w-full object-contain" data-card-image />
+					<img
+						src="${circlesImage}"
+						alt="Original circles guide"
+						class="pointer-events-none absolute inset-0 h-full w-full object-contain opacity-0 transition-opacity duration-150 group-hover:opacity-90"
+						data-card-overlay
+					/>
+				</div>
+				<div class="flex flex-col gap-1.5 border-t border-zinc-200 bg-white p-4 text-sm dark:border-zinc-700">
+					<p class="m-0 font-mono font-medium text-black" data-card-model></p>
+					<p class="m-0 text-zinc-600" data-card-meta></p>
+				</div>
+			`;
+
+			card.querySelector("[data-card-model]")!.textContent = model.id;
+			card.querySelector("[data-card-meta]")!.textContent = `Settings: ${model.settings}`;
+
+			return card;
+		}
+
+		function setCardSuccess(card: HTMLElement, result: GenerationSuccess) {
+			const status = card.querySelector<HTMLElement>("[data-card-status]")!;
+			const img = card.querySelector<HTMLImageElement>("[data-card-image]")!;
+			const meta = card.querySelector<HTMLElement>("[data-card-meta]")!;
+
+			img.src = result.image;
+			img.alt = `Owl from ${result.model}`;
+			img.classList.remove("hidden");
+			status.classList.add("hidden");
+
+			meta.textContent = `${result.latencyMs}ms · ${formatCost(result.cost)} · ${result.settings}`;
+		}
+
+		function setCardError(card: HTMLElement, model: ModelMeta, message: string, latencyMs?: number) {
+			const status = card.querySelector<HTMLElement>("[data-card-status]")!;
+			const meta = card.querySelector<HTMLElement>("[data-card-meta]")!;
+
+			status.classList.remove("animate-pulse");
+			status.innerHTML = `<span class="text-red-500">${message}</span>`;
+			meta.textContent =
+				latencyMs !== undefined
+					? `Failed after ${latencyMs}ms · Settings: ${model.settings}`
+					: `Settings: ${model.settings}`;
+		}
+
+		async function loadModels() {
+			try {
+				const response = await fetch("/api/drawOwl");
+				if (!response.ok) return;
+				const data = await response.json();
+				if (Array.isArray(data.models)) {
+					models = data.models;
+				}
+			} catch {
+				// Fallback if GET isn't available in dev yet
+				models = [];
+			}
+		}
+
+		async function generateOne(guideImage: string, model: ModelMeta, card: HTMLElement) {
+			const startedAt = performance.now();
+			try {
+				const response = await fetch("/api/drawOwl", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ image: guideImage, model: model.id }),
+				});
+
+				const data = await response.json().catch(() => ({}));
+				const roundTripMs = Math.round(performance.now() - startedAt);
+
+				if (!response.ok) {
+					setCardError(card, model, data.message ?? `HTTP ${response.status}`, roundTripMs);
+					return;
+				}
+
+				setCardSuccess(card, {
+					model: data.model ?? model.id,
+					image: data.image,
+					latencyMs: data.latencyMs ?? roundTripMs,
+					cost: data.cost ?? null,
+					settings: data.settings ?? model.settings,
+				});
+			} catch (err) {
+				const roundTripMs = Math.round(performance.now() - startedAt);
+				setCardError(
+					card,
+					model,
+					err instanceof Error ? err.message : "Request failed",
+					roundTripMs,
+				);
+			}
+		}
+
+		canvas.addEventListener("pointerdown", (e) => {
+			if (loading || circles.length >= MAX_CIRCLES) return;
+			canvas.setPointerCapture(e.pointerId);
+			start = toCanvasPoint(e);
+		});
+
+		canvas.addEventListener("pointermove", (e) => {
+			if (!start) return;
+			preview = buildCircle(start, toCanvasPoint(e));
+			render();
+		});
+
+		function finishStroke() {
+			if (preview && preview.rx > 12 && preview.ry > 12) {
+				circles.push(preview);
+			}
+			start = null;
+			preview = null;
+			render();
+			renderPencil();
+			syncControls();
+		}
+
+		canvas.addEventListener("pointerup", finishStroke);
+		canvas.addEventListener("pointercancel", finishStroke);
+
+		undoBtn.addEventListener("click", () => {
+			circles.pop();
+			render();
+			renderPencil();
+			syncControls();
+		});
+
+		clearBtn.addEventListener("click", () => {
+			circles.length = 0;
+			resultsSection.classList.add("hidden");
+			resultsSection.classList.remove("flex");
+			grid.replaceChildren();
+			render();
+			renderPencil();
+			syncControls();
+		});
+
+		compareBtn.addEventListener("click", async () => {
+			if (circles.length === 0 || loading) return;
+
+			if (models.length === 0) {
+				await loadModels();
+			}
+			if (models.length === 0) {
+				setError("Could not load model list.");
+				return;
+			}
+
+			loading = true;
+			setError("");
+			syncControls();
+
+			renderPencil();
+			const circlesImage = canvas.toDataURL("image/png");
+			const guideImage = pencilCanvas.toDataURL("image/png");
+
+			resultsSection.classList.remove("hidden");
+			resultsSection.classList.add("flex");
+			grid.replaceChildren();
+
+			for (const model of models) {
+				const card = createCard(model, circlesImage);
+				grid.appendChild(card);
+				void generateOne(guideImage, model, card);
+			}
+
+			loading = false;
+			syncControls();
+		});
+
+		void loadModels();
+		render();
+		renderPencil();
+		syncControls();
+	});
+</script>

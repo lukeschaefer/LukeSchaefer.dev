@@ -1,9 +1,12 @@
 import { type CollectionEntry, getCollection } from "astro:content";
 
-/** filter out draft posts based on the environment */
+/** filter out draft posts based on the environment and hide future-dated posts */
 export async function getAllPosts(): Promise<CollectionEntry<"post">[]> {
 	return await getCollection("post", ({ data }) => {
-		return import.meta.env.PROD ? !data.draft : true;
+		const isPublished = data.publishDate.getTime() <= Date.now();
+		const isVisibleDraft = import.meta.env.PROD ? !data.draft : true;
+
+		return isVisibleDraft && isPublished;
 	});
 }
 
