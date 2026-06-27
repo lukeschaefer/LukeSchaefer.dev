@@ -12,9 +12,9 @@ tags: ["zip"]
 
 I ***love*** Mini PCs. I’ve collected half a dozen over the last decade, for all sorts of functions. A Chromebox I put Ubuntu on, another that runs TrueNAS & Plex, and most recently, I built a bootleg Steam Machine that now (beautifully) runs SteamOS, connected right to my TV. All of these devices cost less than $300 \- and consume barely any power, even less space. And they’re cute\! And cheap\!
 
-However, if you’re the type to feel decision paralysis when making tech purchases with dozens of options \- try searching on Amazon for “Mini PC” and you’ll immediately feel a bit woozy:
+However, if you’re the type to feel decision paralysis when making tech purchases with dozens of options \- try searching on for “Mini PC” and you’ll immediately feel a bit woozy:
 
-![][image1]
+![](/mini-pc-search-results.jpg)
 
 There’s **thousands** of options \- most by random brands you’ve never heard of \- each just a pile of hard-to-parse specs. I don’t typically stay up-to-date on processor naming and benchmarks \- though many in the [MiniPC community](https://reddit.com/r/minipcs) (of course there’s a community\!) certainly do. This means I have to load up spec sheets and benchmarks if I want to be sure I’m actually getting a good deal.
 
@@ -42,7 +42,7 @@ In the above charts you can see we use color to indicate distance to the Pareto 
 
 For instance \- if your budget is $100 \- $150, and you’re looking for a machine that can do some light gaming \- you can immediately cross out some MiniPCs that were Pareto optimal for CPU, because you can tell they don’t have the same optimality for their Graphics benchmarks. The i5-8500T is alright, but you can fork over just $10 more for a Ryzen 2400 G \- which will perform significantly better in gaming tasks.
 
-Anyway \- the tool is available at [MiniPCs.zip](https://minipcs.zip) (and before you ask, *yes*, it’s *riddled* with affiliate links (it actually costs $20+ a day to scrape Amazon and eBay for up-to-date-items so don’t even shame me)). You can adjust the axis and colors to show CPU, GPU, Storage and RAM information. It’s not perfect \- but it really helps whittle down the thousands of overpriced options (or rather, exposes the best underpriced options).
+Anyway \- the tool is available at [MiniPCs.zip](https://minipcs.zip) - you can adjust the axis and colors to show CPU, GPU, Storage and RAM information. It’s not perfect \- but it really helps whittle down the thousands of overpriced options (or rather, exposes the best underpriced options).
 
 I used it to find a great deal on a renewed box with a Ryzen 7640HS \- which is running SteamOS beautifully, tucked away nicely in the TV console stand. 
 
