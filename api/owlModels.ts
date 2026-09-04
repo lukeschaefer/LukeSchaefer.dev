@@ -1,10 +1,9 @@
-export const OWL_PROMPT =	`
-	Edit this image: it is a rough sketch of an owl
-	It has eyes, a beak, feet, and feather marks already roughed in - possibly a branch it's standing on. 
-	Draw the rest of the owl as a professional and cohesive graphite pencil sketch. 
-	KEEP THE POSE AND PROPORTIONS, which may be abnormal and unreal. 
-	Plain white background, turn this sketch into a skillful artistic result.
-    STICK TO THE GUIDE MARKS, with beautiful feathers, talons, eyes, beak.`;
+export const OWL_PROMPT = `Edit this image: it is a rough sketch of an owl
+It has eyes, a beak, feet, and feather marks already roughed in - possibly a branch it's standing on.
+Draw the rest of the owl as a professional and cohesive graphite pencil sketch.
+KEEP THE POSE AND PROPORTIONS, which may be abnormal and unreal.
+Plain white background, turn this sketch into a skillful artistic result.
+STICK TO THE GUIDE MARKS, with beautiful feathers, talons, eyes, beak.`;
 
 export type OwlModelConfig = {
 	id: string;

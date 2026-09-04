@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import path from "node:path";
+
 export const openRouterUrl = "https://openrouter.ai/api/v1/chat/completions";
 
 type OpenRouterImage = { image_url?: { url?: string } };
@@ -53,13 +56,52 @@ function extractImageDataUrl(message: OpenRouterMessage | undefined): string | n
 	return null;
 }
 
+function parseEnvFile(filePath: string): Record<string, string> {
+	try {
+		const parsed: Record<string, string> = {};
+		for (const rawLine of fs.readFileSync(filePath, "utf8").split(/\r?\n/)) {
+			const line = rawLine.trim();
+			if (!line || line.startsWith("#")) continue;
+			const eq = line.indexOf("=");
+			if (eq === -1) continue;
+
+			const key = line.slice(0, eq).trim();
+			let value = line.slice(eq + 1).trim();
+			if (
+				(value.startsWith('"') && value.endsWith('"')) ||
+				(value.startsWith("'") && value.endsWith("'"))
+			) {
+				value = value.slice(1, -1);
+			}
+			parsed[key] = value;
+		}
+		return parsed;
+	} catch {
+		return {};
+	}
+}
+
+function loadOpenRouterKeyFromFiles(): string | undefined {
+	const cwd = process.cwd();
+	const fromEnv = parseEnvFile(path.join(cwd, ".env"));
+	const fromLocal = parseEnvFile(path.join(cwd, ".env.local"));
+	return fromLocal.OPENROUTER_API_KEY || fromEnv.OPENROUTER_API_KEY;
+}
+
 function getOpenRouterKey(): string {
-	const key = process.env.OPENROUTER_API_KEY;
-	if (!key) {
-		throw new Error("OPENROUTER_API_KEY is not set.");
+	const fromProcess = process.env.OPENROUTER_API_KEY;
+	if (fromProcess) return fromProcess;
+
+	const fromMeta = import.meta.env?.OPENROUTER_API_KEY;
+	if (typeof fromMeta === "string" && fromMeta) return fromMeta;
+
+	const fromFiles = loadOpenRouterKeyFromFiles();
+	if (fromFiles) {
+		process.env.OPENROUTER_API_KEY = fromFiles;
+		return fromFiles;
 	}
 
-	return key;
+	throw new Error("OPENROUTER_API_KEY is not set.");
 }
 
 export async function callOpenRouterImageEdit(

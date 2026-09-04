@@ -3,6 +3,9 @@
 	"functions": {
 		"api/getStats.ts": {
 			"maxDuration": 10
+		},
+		"api/drawOwl.ts": {
+			"maxDuration": 120
 		}
 	}
 }

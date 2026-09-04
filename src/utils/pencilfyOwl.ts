@@ -41,6 +41,149 @@ function sketch(times: number, draw: () => void) {
 	for (let i = 0; i < times; i++) draw();
 }
 
+/** Closed polygon with quadratic fillets at each vertex, for rough.js `path()`. */
+function roundedPolygonPath(points: [number, number][], radius: number): string {
+	const n = points.length;
+	if (n < 3) return "";
+
+	const corners: {
+		from: [number, number];
+		to: [number, number];
+		ctrl: [number, number];
+	}[] = [];
+
+	for (let i = 0; i < n; i++) {
+		const prev = points[(i - 1 + n) % n]!;
+		const curr = points[i]!;
+		const next = points[(i + 1) % n]!;
+
+		const dx1 = curr[0] - prev[0];
+		const dy1 = curr[1] - prev[1];
+		const dx2 = next[0] - curr[0];
+		const dy2 = next[1] - curr[1];
+
+		const len1 = Math.hypot(dx1, dy1) || 1;
+		const len2 = Math.hypot(dx2, dy2) || 1;
+		const r = Math.min(radius, len1 * 0.48, len2 * 0.48);
+
+		corners.push({
+			from: [curr[0] - (dx1 / len1) * r, curr[1] - (dy1 / len1) * r],
+			to: [curr[0] + (dx2 / len2) * r, curr[1] + (dy2 / len2) * r],
+			ctrl: curr,
+		});
+	}
+
+	let d = `M ${corners[0]!.from[0]} ${corners[0]!.from[1]}`;
+	for (let i = 0; i < n; i++) {
+		const corner = corners[i]!;
+		const next = corners[(i + 1) % n]!;
+		d += ` Q ${corner.ctrl[0]} ${corner.ctrl[1]} ${corner.to[0]} ${corner.to[1]}`;
+		d += ` L ${next.from[0]} ${next.from[1]}`;
+	}
+	return `${d} Z`;
+}
+
+/** Horizontal inside span of a simple polygon at a given y, or null if outside. */
+function polygonSpanAtY(y: number, points: [number, number][]): [number, number] | null {
+	const xs: number[] = [];
+	const n = points.length;
+
+	for (let i = 0; i < n; i++) {
+		const a = points[i]!;
+		const b = points[(i + 1) % n]!;
+		const y0 = a[1];
+		const y1 = b[1];
+
+		if (y0 === y1) {
+			if (y === y0) {
+				xs.push(a[0], b[0]);
+			}
+			continue;
+		}
+
+		const minY = Math.min(y0, y1);
+		const maxY = Math.max(y0, y1);
+		if (y < minY || y > maxY) continue;
+
+		const t = (y - y0) / (y1 - y0);
+		xs.push(a[0] + t * (b[0] - a[0]));
+	}
+
+	if (xs.length < 2) return null;
+
+	xs.sort((a, b) => a - b);
+	return [xs[0]!, xs[xs.length - 1]!];
+}
+
+/** Flat-top eye: a circle with the top cropped, showing `arcRatio` of the circumference. */
+function flatTopEyePath(
+	cx: number,
+	cy: number,
+	r: number,
+	arcRatio: number,
+	tilt = 0,
+): string {
+	const ratio = clamp(arcRatio, 0.05, 1);
+	const hiddenHalf = (1 - ratio) * Math.PI;
+	const startAngle = -Math.PI / 2 + hiddenHalf;
+	const endAngle = -Math.PI / 2 - hiddenHalf;
+	const ux1 = cx + r * Math.cos(startAngle);
+	const uy1 = cy + r * Math.sin(startAngle);
+	const ux2 = cx + r * Math.cos(endAngle);
+	const uy2 = cy + r * Math.sin(endAngle);
+	const [x1, y1] = rotatePoint(ux1, uy1, cx, cy, tilt);
+	const [x2, y2] = rotatePoint(ux2, uy2, cx, cy, tilt);
+	const rotationDeg = (tilt * 180) / Math.PI;
+
+	return `M ${x1} ${y1} A ${r} ${r} ${rotationDeg} ${ratio > 0.5 ? 1 : 0} 1 ${x2} ${y2} Z`;
+}
+
+/** Upward-arched brow stroke above an eye; endpoints sit on a line, peak rises by `curve`. */
+function sampleQuadratic(
+	p0: [number, number],
+	p1: [number, number],
+	p2: [number, number],
+	steps = 14,
+): [number, number][] {
+	const points: [number, number][] = [];
+	for (let i = 0; i <= steps; i++) {
+		const t = i / steps;
+		const mt = 1 - t;
+		points.push([
+			mt * mt * p0[0] + 2 * mt * t * p1[0] + t * t * p2[0],
+			mt * mt * p0[1] + 2 * mt * t * p1[1] + t * t * p2[1],
+		]);
+	}
+	return points;
+}
+
+function eyebrowPoints(
+	cx: number,
+	baseY: number,
+	halfWidth: number,
+	curve: number,
+	tilt: number,
+): [number, number][] {
+	const [lx, ly] = rotatePoint(cx - halfWidth, baseY, cx, baseY, tilt);
+	const [rx, ry] = rotatePoint(cx + halfWidth, baseY, cx, baseY, tilt);
+	const [px, py] = rotatePoint(cx, baseY - curve, cx, baseY, tilt);
+
+	return sampleQuadratic([lx, ly], [px, py], [rx, ry]);
+}
+
+function drawEyebrow(
+	rc: RoughCanvas,
+	cx: number,
+	baseY: number,
+	halfWidth: number,
+	curve: number,
+	tilt: number,
+	style: Options,
+) {
+	const points = eyebrowPoints(cx, baseY, halfWidth, curve, tilt);
+	sketch(2, () => rc.curve(points, style));
+}
+
 // ============================================================================
 // SECTION: grouping  →  would live in `owl/grouping.ts`
 // Decides which user circles belong to the same owl. No drawing.
@@ -270,27 +413,59 @@ const INK = "55, 65, 81";
 const ink = (alpha: number) => `rgba(${INK}, ${alpha})`;
 
 /** The stroke "roles" any part can ask the theme for. */
-type InkRole = "outline" | "mergedOutline" | "detail" | "feather" | "fill";
+type InkRole = "outline" | "mergedOutline" | "tail" | "detail" | "feather" | "fill";
 
 /** Named, overridable geometry ratios. All are fractions of head/body radii. */
 type Proportions = {
 	headYawMax: number;
 	eyeSpread: number;
 	eyeYOffset: number;
-	eyeRadius: number;
+	/** Eye radius as a fraction of the smaller head radius. */
+	eyeSize: number;
+	/** Visible fraction of the eye circle (e.g. 2/3 = flat top, bottom two-thirds shown). */
+	eyeArc: number;
+	/** Inward rotation per eye, in radians (left eye +tilt, right eye −tilt). */
+	eyeTilt: number;
+	/** Gap above the eye center to brow endpoints, as a multiple of eye radius. */
+	browGap: number;
+	/** Brow span width as a multiple of eye radius. */
+	browWidth: number;
+	/** Upward arch height as a multiple of eye radius. */
+	browCurve: number;
+	/** Multiplier on `eyeTilt` applied to each brow (1 = match the eyes). */
+	browTilt: number;
+	/** Detail stroke width for brow arcs. */
+	browStrokeWidth: number;
 	pupilShift: number;
 	pupilSize: number;
 	beakHalfWidth: number;
 	beakHeightRatio: number;
 	beakAnchorY: number;
 	beakAngleMax: number;
+	tailTopHalfWidth: number;
+	tailBottomHalfWidth: number;
+	tailApexY: number;
+	tailHeight: number;
+	tailFarCornerDrop: number;
+	tailCornerRadius: number;
+	tailTurnOffset: number;
+	tailFeatherRows: number;
+	tailFeatherLength: number;
 	footSpread: number;
 	footHalfWidth: number;
 	footHeight: number;
 	footLean: number;
 	footBaseY: number;
+	perchLift: number;
+	perchGap: number;
+	perchExtend: number;
+	perchChance: number;
 	featherRows: number;
 	featherLength: number;
+	/** Wing feather wide:long ratio (perpendicular : along flow). */
+	featherAspect: number;
+	/** Row spacing as a multiple of feather length (lower = denser). */
+	featherSpacing: number;
 	featherBaseFill: number;
 	faceLayers: number;
 	faceSpread: number;
@@ -306,23 +481,45 @@ type Theme = {
 
 // curveFitting: 1 keeps rough.js from jittering rx/ry independently (which warps aspect).
 const DEFAULT_PROPORTIONS: Proportions = {
-	headYawMax: Math.PI / 2,
+	headYawMax: Math.PI / 3,
 	eyeSpread: 0.42,
 	eyeYOffset: 0.12,
-	eyeRadius: 0.32,
+	eyeSize: 0.23,
+	eyeArc: 3 / 4,
+	eyeTilt: (15 * Math.PI) / 180,
+	browGap: 0.2,
+	browWidth: 3,
+	browCurve: -0.78,
+	browTilt: 2,
+	browStrokeWidth: 6,
 	pupilShift: 0.4,
 	pupilSize: 0.7,
 	beakHalfWidth: 0.14,
 	beakHeightRatio: 1.5,
 	beakAnchorY: 0.08,
 	beakAngleMax: Math.PI / 4,
+	tailTopHalfWidth: 0.72,
+	tailBottomHalfWidth: 0.29,
+	tailApexY: 0.25,
+	tailHeight: 9 / 12,
+	tailFarCornerDrop: 0.2,
+	tailCornerRadius: 0.07,
+	tailTurnOffset: 0.4,
+	tailFeatherRows: 16,
+	tailFeatherLength: 0.16,
 	footSpread: 0.34,
 	footHalfWidth: 0.16,
 	footHeight: 0.12,
 	footLean: 0.08,
-	footBaseY: 0.9,
-	featherRows: 24,
+	footBaseY: 0.65,
+	perchLift: 0.045,
+	perchGap: 0.9,
+	perchExtend: 0.95,
+	perchChance: 0.85,
+	featherRows: 36,
 	featherLength: 0.28 * 1.3,
+	featherAspect: 2,
+	featherSpacing: 0.42,
 	featherBaseFill: 0.35,
 	faceLayers: 6,
 	faceSpread: 1.45,
@@ -347,6 +544,12 @@ const DEFAULT_THEME: Theme = {
 			strokeWidth: 3.5,
 			curveFitting: 1,
 			preserveVertices: true,
+		},
+		tail: {
+			roughness: 1.8,
+			bowing: 1,
+			stroke: ink(0.3),
+			strokeWidth: 3,
 		},
 		detail: { roughness: 2.1, bowing: 1.2, stroke: ink(0.5), strokeWidth: 3 },
 		feather: { roughness: 2.1, bowing: 1.2, stroke: ink(0.15), strokeWidth: 3 },
@@ -516,105 +719,311 @@ function drawRotatedEllipse(
 	ctx.restore();
 }
 
+/** Slight horizontal wrap: ovals stay mostly level, with a small lean toward each flank. */
+function featherTilt(px: number, body: OwlCircle, maxTilt = (12 * Math.PI) / 180): number {
+	return ((px - body.cx) / Math.max(body.rx, 1)) * maxTilt;
+}
+
+/** Squat oval size with `aspect` wide-to-long ratio (2 = twice as wide). */
+function wingFeatherSize(len: number, aspect: number): { along: number; across: number } {
+	const along = Math.max(2, len / aspect);
+	const across = Math.max(2, len);
+	return { along, across };
+}
+
+const FEATHER_WING_FILL = { fill: "#ecece6", fillStyle: "solid" as const };
+
+/** X coordinate where the belly→beak split line crosses a given row. */
+function scaleLineXAtY(x0: number, y0: number, x1: number, y1: number, y: number): number {
+	const dy = y1 - y0;
+	if (Math.abs(dy) < 1e-6) return x0;
+	return x0 + ((y - y0) / dy) * (x1 - x0);
+}
+
+type FishscaleDrawArgs = {
+	rc: RoughCanvas;
+	ctx: CanvasRenderingContext2D;
+	feather: Options;
+	body: OwlCircle;
+	colPitch: number;
+	featherLen: number;
+	aspect: number;
+	rows: number;
+	topY: number;
+	bottomY: number;
+	splitX0: number;
+	splitY0: number;
+	splitX1: number;
+	splitY1: number;
+	rowSpan: (rowY: number) => [number, number] | null;
+	sizeScale: (rowY: number, tRow: number, px: number) => number;
+	fill: (px: number, rowY: number) => Options;
+};
+
+/** Bottom-up fishscales split at the belly→beak line: left half L→R, right half R→L. */
+function drawSplitFishscales(args: FishscaleDrawArgs) {
+	const {
+		rc,
+		ctx,
+		feather,
+		body,
+		colPitch,
+		featherLen,
+		aspect,
+		rows,
+		topY,
+		bottomY,
+		splitX0,
+		splitY0,
+		splitX1,
+		splitY1,
+		rowSpan,
+		sizeScale,
+		fill,
+	} = args;
+
+	for (let r = rows - 1; r >= 0; r--) {
+		const tRow = rows === 1 ? 0.5 : r / (rows - 1);
+		const rowY = lerp(topY, bottomY, tRow);
+		const span = rowSpan(rowY);
+		if (!span) continue;
+
+		const [leftX, rightX] = span;
+		if (rightX - leftX < 4) continue;
+
+		const xSplit = scaleLineXAtY(splitX0, splitY0, splitX1, splitY1, rowY);
+		const stagger = (r % 2) * 0.5 * colPitch;
+		const leftEnd = Math.min(xSplit, rightX);
+		const rightStart = Math.max(xSplit, leftX);
+
+		const drawScale = (px: number) => {
+			const len = featherLen * sizeScale(rowY, tRow, px);
+			if (len < 2) return;
+
+			const { along, across } = wingFeatherSize(len, aspect);
+			const tilt = featherTilt(px, body);
+			drawRotatedEllipse(rc, ctx, px, rowY, across, along, tilt, { ...feather, ...fill(px, rowY) });
+		};
+
+		for (let col = 0; ; col++) {
+			const px = leftX + stagger + col * colPitch;
+			if (px > leftEnd + 0.5) break;
+			drawScale(px);
+		}
+
+		for (let col = 0; ; col++) {
+			const px = rightX - stagger - col * colPitch;
+			if (px < rightStart - 0.5) break;
+			drawScale(px);
+		}
+	}
+}
+
 const outlinePart: Part = {
 	id: "outline",
 	z: 0,
 	draw({ rc, owl, theme }) {
+		const whiteFill = { fill: "#ffffff", fillStyle: "solid" as const };
+
 		if (owl.group.length === 1) {
 			const c = owl.body;
-			rc.ellipse(c.cx, c.cy, c.rx * 2, c.ry * 2, theme.styles.outline);
+			rc.ellipse(c.cx, c.cy, c.rx * 2, c.ry * 2, {
+				...theme.styles.outline,
+				...whiteFill,
+			});
 			return;
 		}
-		rc.polygon(owl.outline, theme.styles.mergedOutline);
+		rc.polygon(owl.outline, { ...theme.styles.mergedOutline, ...whiteFill });
 	},
 };
 
-// Feather band runs from topY to botY; full size at body centre (50% y), tapering to
-// 25% at the top of the band and 10% toward the feet.
-function featherVerticalScale(edgeY: number, body: OwlCircle): number {
-	const topY = body.cy - body.ry * 0.45;
-	const midY = body.cy;
-	const botY = body.cy + body.ry * 0.85;
+const TAIL_GEOMETRY = "tailGeometry";
 
-	if (edgeY <= midY) return lerp(0.25, 1, (edgeY - topY) / (midY - topY));
-	return lerp(1, 0.1, (edgeY - midY) / (botY - midY));
+type TailGeometry = {
+	points: [number, number][];
+	path: string;
+	topY: number;
+	bottomY: number;
+};
+
+function computeTailGeometry(owl: OwlModel): TailGeometry {
+	const { body, facing } = owl;
+	const p = owl.proportions;
+
+	const topY = body.cy + body.ry / 3;
+	const tailPixelHeight = body.ry * p.tailHeight;
+	const bottomY = topY + tailPixelHeight;
+	const topHalfWidth = body.rx * p.tailTopHalfWidth;
+	const bottomHalfWidth = body.rx * p.tailBottomHalfWidth;
+	const topOffset = -facing * body.rx * p.tailTurnOffset;
+	const bottomOffset = topOffset * 3;
+	const turn = Math.abs(facing);
+	const farCornerDrop = tailPixelHeight * p.tailFarCornerDrop * turn;
+	const bottomLeftY = bottomY + (facing < 0 ? farCornerDrop : 0);
+	const bottomRightY = bottomY + (facing > 0 ? farCornerDrop : 0);
+	const cornerRadius = body.rx * p.tailCornerRadius;
+	const apexY = body.cy - body.ry + p.tailApexY * (body.ry * 2);
+
+	const points: [number, number][] = [
+		[body.cx, apexY],
+		[body.cx + topOffset - topHalfWidth, topY],
+		[body.cx + bottomOffset - bottomHalfWidth, bottomLeftY],
+		[body.cx + bottomOffset + bottomHalfWidth, bottomRightY],
+		[body.cx + topOffset + topHalfWidth, topY],
+	];
+
+	return {
+		points,
+		path: roundedPolygonPath(points, cornerRadius),
+		topY,
+		bottomY: Math.max(bottomLeftY, bottomRightY),
+	};
 }
 
-// Direction of "feather flow" at a point: the downward-going tangent of the
-// concentric ellipse through that point, blended toward straight down so
-// feathers follow the body curve while still drooping.
-function featherAngle(px: number, py: number, body: OwlCircle): number {
-	const phi = Math.atan2((py - body.cy) / body.ry, (px - body.cx) / body.rx);
-	let tx = -body.rx * Math.sin(phi);
-	let ty = body.ry * Math.cos(phi);
-	if (ty < 0) {
-		tx = -tx;
-		ty = -ty;
-	}
+const tailPart: Part = {
+	id: "tail",
+	z: -10,
+	draw({ owl, anchors }) {
+		anchors.set(TAIL_GEOMETRY, computeTailGeometry(owl));
+	},
+};
 
-	const tLen = Math.hypot(tx, ty) || 1;
-	const downBlend = 0.4;
-	const dx = (tx / tLen) * (1 - downBlend);
-	const dy = (ty / tLen) * (1 - downBlend) + downBlend;
-	return Math.atan2(dy, dx);
+const tailFeathersPart: Part = {
+	id: "tailFeathers",
+	z: -9,
+	draw({ rc, ctx, owl, theme, anchors }) {
+		const geo = anchors.get(TAIL_GEOMETRY) as TailGeometry | undefined;
+		if (!geo) return;
+
+		const { body, head } = owl;
+		const p = theme.proportions;
+		const feather = theme.styles.feather;
+		const featherLen = body.rx * p.tailFeatherLength;
+		const { across } = wingFeatherSize(featherLen, p.featherAspect);
+		const colPitch = across * p.featherSpacing;
+		const beakX = projectOnHead(owl, 0).x;
+		const beakY = head.cy + head.ry * p.beakAnchorY;
+
+		ctx.save();
+		ctx.clip(new Path2D(geo.path));
+
+		drawSplitFishscales({
+			rc,
+			ctx,
+			feather,
+			body,
+			colPitch,
+			featherLen,
+			aspect: p.featherAspect,
+			rows: p.tailFeatherRows,
+			topY: geo.topY,
+			bottomY: geo.bottomY,
+			splitX0: body.cx,
+			splitY0: body.cy + body.ry,
+			splitX1: beakX,
+			splitY1: beakY,
+			rowSpan: (rowY) => polygonSpanAtY(rowY, geo.points),
+			sizeScale: (_rowY, tRow) => lerp(0.78, 1, tRow),
+			fill: () => FEATHER_WING_FILL,
+		});
+
+		ctx.restore();
+	},
+};
+
+/** How much of this side's half-width (edge → centre) is the "wing" wrap. */
+function wingFillFrac(side: number, face: Facing, baseFill: number): number {
+	const turn = Math.abs(face);
+	const dir = face === 0 ? 0 : Math.sign(face);
+	if (sideVisibility(side, face) <= 0) return 0;
+
+	const onBeakSide = dir !== 0 && side === dir;
+	return onBeakSide ? lerp(baseFill, 0.08, turn) : lerp(baseFill, 0.8, turn);
 }
 
-// Feathers are laid out in rows down each flank, with several smaller feathers
-// per row filling inward from the body edge. As the owl turns, the fill area
-// widens on the side opposite the beak and narrows on the beak side, as if the
-// visible coverage wraps around a rounded body.
+function isWingScale(
+	px: number,
+	py: number,
+	body: OwlCircle,
+	face: Facing,
+	baseFill: number,
+	beakY: number,
+): boolean {
+	if (py < beakY) return false;
+
+	const side = px >= body.cx ? 1 : -1;
+	const fillFrac = wingFillFrac(side, face, baseFill);
+	if (fillFrac <= 0) return false;
+
+	const norm = (py - body.cy) / body.ry;
+	if (Math.abs(norm) >= 0.98) return false;
+
+	const halfWidth = body.rx * Math.sqrt(1 - norm * norm);
+	if (halfWidth < 1) return false;
+
+	const inwardFrac = (halfWidth - Math.abs(px - body.cx)) / halfWidth;
+	return inwardFrac <= fillFrac;
+}
+
+const FEATHER_BODY_FILL = { fill: "#ffffff", fillStyle: "solid" as const };
+
+// Fishscale ovals covering the whole body.
+// ovals stay mostly horizontal with a slight flank lean. White fill everywhere;
+// the old wing-coverage region gets an opaque off-white fill so the 3D turn still reads.
 const feathersPart: Part = {
 	id: "feathers",
 	z: 10,
 	draw({ rc, ctx, owl, theme }) {
-		const { body, facing: face } = owl;
+		const { body, head, facing: face } = owl;
 		const p = theme.proportions;
 		const feather = theme.styles.feather;
+		const beakY = head.cy + head.ry * p.beakAnchorY;
 
-		const rows = p.featherRows;
-		const turn = Math.abs(face);
-		const dir = face === 0 ? 0 : Math.sign(face);
 		const featherLen = body.rx * p.featherLength;
-		const spacing = featherLen * 0.6;
-		const bandTop = body.cy - body.ry * 0.45;
-		const bandBot = body.cy + body.ry * 0.85;
+		const { across } = wingFeatherSize(featherLen, p.featherAspect);
+		const colPitch = across * p.featherSpacing;
+		const beakX = projectOnHead(owl, 0).x;
+		const bandTop = body.cy - body.ry * 0.94;
+		const bandBot = body.cy + body.ry * 0.94;
 
-		for (const side of [-1, 1] as const) {
-			if (sideVisibility(side, face) <= 0) continue;
+		ctx.save();
+		ctx.beginPath();
+		ctx.ellipse(body.cx, body.cy, body.rx, body.ry, 0, 0, Math.PI * 2);
+		ctx.clip();
 
-			// Fraction of the half-width (edge → centre) this side's feathers fill.
-			const onBeakSide = dir !== 0 && side === dir;
-			const onAwaySide = dir !== 0 && side === -dir;
-			const fillFrac = onBeakSide
-				? lerp(p.featherBaseFill, 0.08, turn)
-				: lerp(p.featherBaseFill, 0.8, turn);
-			const outwardTurn = onAwaySide ? ((-side * 10 * Math.PI) / 180) * turn : 0;
-
-			for (let r = 0; r < rows; r++) {
-				const tRow = rows === 1 ? 0.5 : r / (rows - 1);
-				const rowY = lerp(bandTop, bandBot, tRow) + rand(-0.03, 0.03) * body.ry;
+		drawSplitFishscales({
+			rc,
+			ctx,
+			feather,
+			body,
+			colPitch,
+			featherLen,
+			aspect: p.featherAspect,
+			rows: p.featherRows,
+			topY: bandTop,
+			bottomY: bandBot,
+			splitX0: body.cx,
+			splitY0: body.cy + body.ry,
+			splitX1: beakX,
+			splitY1: beakY,
+			rowSpan: (rowY) => {
 				const norm = (rowY - body.cy) / body.ry;
-				if (Math.abs(norm) >= 0.98) continue;
-
+				if (Math.abs(norm) >= 0.98) return null;
 				const halfWidth = body.rx * Math.sqrt(1 - norm * norm);
-				const sizeScale = featherVerticalScale(lerp(bandTop, bandBot, tRow), body);
-				const fillWidth = halfWidth * fillFrac;
-				const cols = Math.max(1, Math.round(fillWidth / spacing));
+				if (halfWidth < 2) return null;
+				return [body.cx - halfWidth, body.cx + halfWidth];
+			},
+			sizeScale: (rowY, _tRow, _px) => {
+				const norm = (rowY - body.cy) / body.ry;
+				return lerp(1, 0.78, Math.abs(norm));
+			},
+			fill: (px, rowY) =>
+				isWingScale(px, rowY, body, face, p.featherBaseFill, beakY)
+					? FEATHER_WING_FILL
+					: FEATHER_BODY_FILL,
+		});
 
-				for (let col = 0; col < cols; col++) {
-					const u = (col + rand(0.1, 0.9)) / cols;
-					const px = body.cx + side * (halfWidth - u * fillWidth);
-					const py = rowY + rand(-0.02, 0.02) * body.ry;
-
-					const len = featherLen * sizeScale * rand(0.85, 1.15);
-					if (len < 2) continue;
-
-					const angle =
-						featherAngle(px, py, body) + rand(-8, 8) * (Math.PI / 180) + outwardTurn;
-					drawRotatedEllipse(rc, ctx, px, py, len, Math.max(2, len * 0.4), angle, feather);
-				}
-			}
-		}
+		ctx.restore();
 	},
 };
 
@@ -637,75 +1046,148 @@ function drawTalon(
 	);
 }
 
-const FOOT_BOTTOMS = "footBottoms";
+const WHITE_FILL = { fill: "#ffffff", fillStyle: "solid" as const };
+const FOOT_LAYOUT = "footLayout";
 
-const feetPart: Part = {
-	id: "feet",
-	z: 20,
-	draw({ rc, owl, theme, anchors }) {
-		const { body, facing: face } = owl;
-		const p = theme.proportions;
-		const detail = theme.styles.detail;
+type TalonDraw = {
+	baseX: number;
+	footBaseY: number;
+	talonHalfW: number;
+	talonH: number;
+	cheatX: number;
+};
 
-		const turn = Math.abs(face);
-		const dir = face === 0 ? 0 : Math.sign(face);
+type FootLayout = {
+	footBottoms: [number, number][];
+	talons: TalonDraw[];
+};
 
-		const footDX = body.rx * p.footSpread;
-		const halfWidth = body.rx * p.footHalfWidth;
-		const footH = body.ry * p.footHeight;
-		const lean = face * body.rx * p.footLean;
-		const baseFootY = body.cy + body.ry * p.footBaseY;
+function computeFootLayout(owl: OwlModel, theme: Theme): FootLayout {
+	const { body, facing: face } = owl;
+	const p = theme.proportions;
 
-		const footBottoms: [number, number][] = [];
+	const turn = Math.abs(face);
+	const dir = face === 0 ? 0 : Math.sign(face);
 
-		for (const side of [-1, 1] as const) {
-			if (sideVisibility(side, face) <= 0) continue;
+	const footDX = body.rx * p.footSpread;
+	const halfWidth = body.rx * p.footHalfWidth;
+	const footH = body.ry * p.footHeight;
+	const lean = face * body.rx * p.footLean;
+	const baseFootY = body.cy + body.ry * p.footBaseY;
 
-			const onFacingSide = dir !== 0 && side === dir;
-			const footY = onFacingSide
-				? lerp(baseFootY, body.cy + body.ry * 0.72, turn)
-				: baseFootY;
-			const fx =
-				body.cx + side * footDX + lean + (onFacingSide ? side * body.rx * 0.14 * turn : 0);
-			const footBaseY = footY + footH;
+	const footBottoms: [number, number][] = [];
+	const talons: TalonDraw[] = [];
 
-			const talonHalfW = halfWidth * 0.3;
-			const talonH = footH * 0.9;
-			for (const spread of [-0.62, 0, 0.62]) {
-				const baseX = fx + spread * halfWidth;
-				const cheatX = face * talonHalfW * (0.5 + 0.35 * Math.abs(spread)) * (turn || 1);
-				drawTalon(rc, baseX, footBaseY, talonHalfW, talonH, cheatX, detail);
-			}
+	for (const side of [-1, 1] as const) {
+		if (sideVisibility(side, face) <= 0) continue;
 
-			footBottoms.push([fx, footBaseY + talonH]);
+		const onFacingSide = dir !== 0 && side === dir;
+		const footY = onFacingSide
+			? lerp(baseFootY, body.cy + body.ry * 0.72, turn)
+			: baseFootY;
+		const fx =
+			body.cx + side * footDX + lean + (onFacingSide ? side * body.rx * 0.14 * turn : 0);
+		const footBaseY = footY + footH;
+
+		const talonHalfW = halfWidth * 0.3;
+		const talonH = footH * 0.9;
+		for (const spread of [-0.62, 0, 0.62]) {
+			const baseX = fx + spread * halfWidth;
+			const cheatX = face * talonHalfW * (0.5 + 0.35 * Math.abs(spread)) * (turn || 1);
+			talons.push({ baseX, footBaseY, talonHalfW, talonH, cheatX });
 		}
 
-		// Hand the planted foot positions to the perch part.
-		anchors.set(FOOT_BOTTOMS, footBottoms);
+		footBottoms.push([fx, footBaseY + talonH]);
+	}
+
+	return { footBottoms, talons };
+}
+
+const footLayoutPart: Part = {
+	id: "footLayout",
+	z: 15,
+	draw({ owl, theme, anchors }) {
+		anchors.set(FOOT_LAYOUT, computeFootLayout(owl, theme));
 	},
 };
 
+function drawPerchBranch(
+	rc: RoughCanvas,
+	yAt: (x: number) => number,
+	gap: number,
+	startX: number,
+	endX: number,
+	detail: Options,
+) {
+	const topLeft: [number, number] = [startX, yAt(startX)];
+	const topRight: [number, number] = [endX, yAt(endX)];
+	const botRight: [number, number] = [endX, yAt(endX) + gap];
+	const botLeft: [number, number] = [startX, yAt(startX) + gap];
+
+	rc.polygon([topLeft, topRight, botRight, botLeft], {
+		...detail,
+		...WHITE_FILL,
+		stroke: "transparent",
+		strokeWidth: 0,
+	});
+	rc.line(startX, yAt(startX), endX, yAt(endX), detail);
+	rc.line(startX, yAt(startX) + gap, endX, yAt(endX) + gap, detail);
+}
+
 // With both feet planted, sometimes perch the owl on a branch: two lines
-// running under the feet and out to the canvas edges. Consumes the foot
-// anchors published by `feetPart`.
+// running under the feet and out to the canvas edges. Drawn before the feet
+// so talons sit on top of the stick.
 const perchPart: Part = {
 	id: "perch",
-	z: 25,
+	z: 20,
 	enabled(c) {
-		const footBottoms = c.anchors.get(FOOT_BOTTOMS) as [number, number][] | undefined;
-		return !!footBottoms && footBottoms.length === 2 && Math.random() < 0.5;
+		const layout = c.anchors.get(FOOT_LAYOUT) as FootLayout | undefined;
+		return (
+			!!layout &&
+			layout.footBottoms.length === 2 &&
+			Math.random() < c.theme.proportions.perchChance
+		);
 	},
 	draw({ rc, owl, theme, canvas, anchors }) {
-		const footBottoms = anchors.get(FOOT_BOTTOMS) as [number, number][];
-		const [[x1, y1], [x2, y2]] = footBottoms;
-		const footH = owl.body.ry * theme.proportions.footHeight;
+		const layout = anchors.get(FOOT_LAYOUT) as FootLayout;
+		const p = theme.proportions;
+		const [[x1, y1], [x2, y2]] = layout.footBottoms;
+		const footH = owl.body.ry * p.footHeight;
+		const lift = owl.body.ry * p.perchLift;
 
 		const slope = (y2 - y1) / (x2 - x1 || 1);
-		const yAt = (x: number) => y1 + (x - x1) * slope;
-		const gap = footH * 0.9;
+		const yAt = (x: number) => y1 + (x - x1) * slope - lift;
+		const gap = footH * p.perchGap;
+		const detail = theme.styles.detail;
 
-		rc.line(0, yAt(0), canvas.width, yAt(canvas.width), theme.styles.detail);
-		rc.line(0, yAt(0) + gap, canvas.width, yAt(canvas.width) + gap, theme.styles.detail);
+		const minFootX = Math.min(x1, x2);
+		const maxFootX = Math.max(x1, x2);
+		const extend = owl.body.rx * p.perchExtend;
+		const startX = Math.max(0, minFootX - extend);
+		const endX = Math.min(canvas.width, maxFootX + extend);
+
+		drawPerchBranch(rc, yAt, gap, startX, endX, detail);
+	},
+};
+
+const feetPart: Part = {
+	id: "feet",
+	z: 25,
+	draw({ rc, theme, anchors }) {
+		const layout = anchors.get(FOOT_LAYOUT) as FootLayout;
+		const detail = theme.styles.detail;
+
+		for (const talon of layout.talons) {
+			drawTalon(
+				rc,
+				talon.baseX,
+				talon.footBaseY,
+				talon.talonHalfW,
+				talon.talonH,
+				talon.cheatX,
+				detail,
+			);
+		}
 	},
 };
 
@@ -758,7 +1240,10 @@ const faceDiscPart: Part = {
 				const py = (base.y + tip.y) / 2;
 				const angle = Math.atan2(dy, dx) + rand(-5, 5) * (Math.PI / 180);
 
-				drawRotatedEllipse(rc, ctx, px, py, len, Math.max(2, len * 0.4), angle, feather);
+				drawRotatedEllipse(rc, ctx, px, py, len, Math.max(2, len * 0.4), angle, {
+					...feather,
+					...WHITE_FILL,
+				});
 			}
 		}
 	},
@@ -772,7 +1257,7 @@ const eyesPart: Part = {
 		const p = theme.proportions;
 
 		const eyeY = head.cy - head.ry * p.eyeYOffset;
-		const eyeR = Math.min(head.rx, head.ry) * p.eyeRadius;
+		const eyeR = Math.min(head.rx, head.ry) * p.eyeSize;
 		const eyeLongitude = Math.asin(p.eyeSpread);
 
 		for (const side of [-1, 1] as const) {
@@ -783,8 +1268,45 @@ const eyesPart: Part = {
 			const r = eyeR * Math.sqrt(depth);
 			if (r < 0.5) continue;
 
-			sketch(2, () => rc.circle(x, eyeY, r * 2, theme.styles.detail));
-			rc.circle(x + face * r * p.pupilShift, eyeY, r * p.pupilSize, theme.styles.fill);
+			const tilt = -side * p.eyeTilt;
+			const eyePath = flatTopEyePath(x, eyeY, r, p.eyeArc, tilt);
+			rc.path(eyePath, { ...theme.styles.detail, ...WHITE_FILL });
+			sketch(2, () => rc.path(eyePath, theme.styles.detail));
+
+			const pupilX = x + face * r * p.pupilShift;
+			const pupilY = eyeY + r * (1 - p.eyeArc) * 0.35;
+			const [px, py] = rotatePoint(pupilX, pupilY, x, eyeY, tilt);
+			rc.circle(px, py, r * p.pupilSize, theme.styles.fill);
+		}
+	},
+};
+
+const browsPart: Part = {
+	id: "brows",
+	z: 32,
+	draw({ rc, owl, theme }) {
+		const { head } = owl;
+		const p = theme.proportions;
+		const browStyle = { ...theme.styles.detail, strokeWidth: p.browStrokeWidth };
+
+		const eyeY = head.cy - head.ry * p.eyeYOffset;
+		const eyeR = Math.min(head.rx, head.ry) * p.eyeSize;
+		const eyeLongitude = Math.asin(p.eyeSpread);
+
+		for (const side of [-1, 1] as const) {
+			const { x, depth } = projectOnHead(owl, side * eyeLongitude);
+			if (depth <= 0) continue;
+
+			const r = eyeR * Math.sqrt(depth);
+			if (r < 0.5) continue;
+
+			const tilt = -side * p.eyeTilt * p.browTilt;
+			const flatTopY = eyeY - r * Math.sin((1 - p.eyeArc) * Math.PI);
+			const browBaseY = flatTopY - r * p.browGap;
+			const halfWidth = (r * p.browWidth) / 2;
+			const curve = r * p.browCurve;
+
+			drawEyebrow(rc, x, browBaseY, halfWidth, curve, tilt, browStyle);
 		}
 	},
 };
@@ -813,6 +1335,7 @@ const beakPart: Part = {
 		];
 
 		const points = corners.map(([x, y]) => rotatePoint(x, y, anchorX, anchorY, angle));
+		rc.polygon(points, { ...theme.styles.detail, ...WHITE_FILL });
 		sketch(2, () => rc.polygon(points, theme.styles.detail));
 	},
 };
@@ -820,12 +1343,16 @@ const beakPart: Part = {
 // The owl's anatomy, in draw order. New parts (wings, ear tufts, brows…) slot
 // in here; `z` controls layering and `enabled` controls pose/theme variation.
 const PARTS: Part[] = [
+	tailPart,
+	tailFeathersPart,
 	outlinePart,
 	feathersPart,
-	feetPart,
+	footLayoutPart,
 	perchPart,
+	feetPart,
 	faceDiscPart,
 	eyesPart,
+	browsPart,
 	beakPart,
 ];
 

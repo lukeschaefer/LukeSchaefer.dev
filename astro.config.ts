@@ -7,6 +7,7 @@ import icon from "astro-icon";
 import robotsTxt from "astro-robots-txt";
 import webmanifest from "astro-webmanifest";
 import { defineConfig, envField } from "astro/config";
+import { GET as getDrawOwl, POST as postDrawOwl } from "./api/drawOwl";
 import { expressiveCodeOptions } from "./src/site.config";
 import { siteConfig } from "./src/site.config";
 
@@ -94,16 +95,80 @@ export default defineConfig({
 		optimizeDeps: {
 			exclude: ["@resvg/resvg-js"],
 		},
-		plugins: [tailwind(), rawFonts([".ttf", ".woff"])],
+		plugins: [tailwind(), rawFonts([".ttf", ".woff"]), drawOwlDevApi()],
 	},
 	env: {
 		schema: {
 			WEBMENTION_API_KEY: envField.string({ context: "server", access: "secret", optional: true }),
 			WEBMENTION_URL: envField.string({ context: "client", access: "public", optional: true }),
 			WEBMENTION_PINGBACK: envField.string({ context: "client", access: "public", optional: true }),
+			OPENROUTER_API_KEY: envField.string({ context: "server", access: "secret", optional: true }),
 		},
 	},
 });
+
+function drawOwlDevApi() {
+	return {
+		name: "draw-owl-dev-api",
+		configureServer(server) {
+			server.middlewares.use((req, res, next) => {
+				const pathname = req.url?.split("?")[0];
+				if (pathname !== "/api/drawOwl") {
+					next();
+					return;
+				}
+
+				void handleDrawOwl(req, res).catch((error) => {
+					if (res.headersSent) return;
+					res.statusCode = 500;
+					res.setHeader("Content-Type", "application/json");
+					res.end(
+						JSON.stringify({
+							error: "Failed to draw the owl",
+							message: error instanceof Error ? error.message : "Unknown error",
+						}),
+					);
+				});
+			});
+		},
+	};
+}
+
+async function handleDrawOwl(req, res) {
+	const url = `http://${req.headers.host ?? "localhost"}${req.url ?? "/api/drawOwl"}`;
+	const headers = new Headers();
+	for (const [key, value] of Object.entries(req.headers)) {
+		if (typeof value === "string") headers.set(key, value);
+		else if (Array.isArray(value)) headers.set(key, value.join(", "));
+	}
+
+	let response: Response;
+	if (req.method === "GET" || req.method === "HEAD") {
+		response = await getDrawOwl();
+	} else if (req.method === "POST") {
+		const chunks: Buffer[] = [];
+		for await (const chunk of req) {
+			chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+		}
+		response = await postDrawOwl(
+			new Request(url, {
+				method: "POST",
+				headers,
+				body: Buffer.concat(chunks),
+			}),
+		);
+	} else {
+		res.statusCode = 405;
+		res.end();
+		return;
+	}
+
+	res.statusCode = response.status;
+	response.headers.forEach((value, key) => {
+		res.setHeader(key, value);
+	});
+	res.end(Buffer.from(await response.arrayBuffer()));
+}
 
 function rawFonts(ext: string[]) {
 	return {
