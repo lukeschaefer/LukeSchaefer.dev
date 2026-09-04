@@ -1,55 +1,81 @@
 ---
 import { OWL_PROMPT } from "../../api/owlModels";
 
-const MAX_CIRCLES = 3;
+const MAX_CIRCLES = 2;
 ---
 
-<div class="not-prose my-8 flex w-full max-w-6xl flex-col items-center gap-6" data-owl>
-	<div class="grid w-full gap-5 md:grid-cols-2">
-		<figure class="m-0 flex flex-col gap-1.5">
-			<figcaption class="text-xs font-medium uppercase tracking-wide text-zinc-400">
-				1 · Your circles
-			</figcaption>
+<div class="not-prose my-8 flex w-full max-w-xl flex-col items-center gap-6" data-owl>
+	<label class="flex w-full items-center gap-2 text-sm text-zinc-600">
+		<input
+			data-owl-cheat
+			type="checkbox"
+			class="size-4 cursor-pointer accent-zinc-800"
+		/>
+		<span>Cheat mode (debug)</span>
+	</label>
+
+	<figure class="m-0 w-full">
+		<div
+			class="relative isolate overflow-hidden rounded-lg border border-zinc-300 bg-white shadow-sm dark:border-zinc-600"
+		>
 			<canvas
 				data-owl-canvas
 				width="1024"
 				height="1024"
-				class="aspect-square w-full cursor-crosshair touch-none rounded-lg border border-zinc-300 bg-white shadow-sm dark:border-zinc-600"
+				class="aspect-square w-full cursor-crosshair touch-none bg-white"
 			></canvas>
-		</figure>
-
-		<figure class="m-0 flex flex-col gap-1.5">
-			<figcaption class="text-xs font-medium uppercase tracking-wide text-zinc-400">
-				2 · Pencil sketch guide
-			</figcaption>
-			<div class="relative">
-				<canvas
-					data-owl-pencil
-					width="1024"
-					height="1024"
-					class="aspect-square w-full rounded-lg border border-zinc-300 bg-white shadow-sm dark:border-zinc-600"
-				></canvas>
+			<img
+				data-owl-pencil-overlay
+				alt=""
+				class="pointer-events-none absolute inset-0 h-full w-full object-contain opacity-0 mix-blend-multiply blur-md"
+			/>
+			<img
+				data-owl-ai-overlay
+				alt=""
+				class="pointer-events-none absolute inset-0 h-full w-full object-contain opacity-0"
+			/>
+			<p
+				data-owl-step1
+				class="pointer-events-none absolute left-6 top-5 z-10 m-0 text-[20px] font-['Comic_Sans_MS','Comic_Sans',cursive] text-black"
+			>
+				1. Draw some circles
+			</p>
+			<p
+				data-owl-step2
+				class="pointer-events-none absolute left-6 top-5 z-10 m-0 text-[20px] font-['Comic_Sans_MS','Comic_Sans',cursive] text-black opacity-0"
+			>
+				2. Draw the rest of the owl
+			</p>
+			<div class="absolute inset-x-4 bottom-3 z-10">
 				<div
-					data-owl-pencil-empty
-					class="absolute inset-0 flex items-center justify-center text-sm text-zinc-400"
+					data-owl-bottom-idle
+					class="flex items-center gap-4"
 				>
-					Draw circles to preview the sketch
+					<button
+						data-owl-compare
+						type="button"
+						class="min-w-0 flex-1 cursor-pointer appearance-none border-0 bg-transparent p-0 text-center text-[18px] font-['Comic_Sans_MS','Comic_Sans',cursive] text-black shadow-none outline-none disabled:cursor-not-allowed disabled:opacity-40"
+					>
+						2. Draw the rest of the owl
+					</button>
+					<button
+						data-owl-clear
+						type="button"
+						class="shrink-0 cursor-pointer appearance-none border border-transparent bg-transparent px-2 py-0.5 text-[18px] font-['Comic_Sans_MS','Comic_Sans',cursive] text-black shadow-none outline-none hover:border-black disabled:cursor-not-allowed disabled:opacity-40"
+					>
+						Clear
+					</button>
 				</div>
+				<button
+					data-owl-restart
+					type="button"
+					class="pointer-events-none absolute bottom-0 right-0 opacity-0 cursor-pointer appearance-none border-0 bg-transparent p-0 text-[18px] font-['Comic_Sans_MS','Comic_Sans',cursive] text-black shadow-none outline-none"
+				>
+					Restart
+				</button>
 			</div>
-		</figure>
-	</div>
-
-	<div class="flex w-full flex-wrap items-center justify-between gap-3 text-sm text-zinc-500">
-		<span data-owl-count>0 / {MAX_CIRCLES} circles</span>
-		<div class="flex gap-3">
-			<button data-owl-undo type="button" class="cursor-pointer hover:text-accent disabled:cursor-not-allowed disabled:opacity-40">
-				Undo
-			</button>
-			<button data-owl-clear type="button" class="cursor-pointer hover:text-accent disabled:cursor-not-allowed disabled:opacity-40">
-				Clear
-			</button>
 		</div>
-	</div>
+	</figure>
 
 	<label class="flex w-full flex-col gap-1.5">
 		<span class="text-xs font-medium uppercase tracking-wide text-zinc-400">
@@ -62,22 +88,7 @@ const MAX_CIRCLES = 3;
 		>{OWL_PROMPT}</textarea>
 	</label>
 
-	<button
-		data-owl-compare
-		type="button"
-		class="w-full max-w-md cursor-pointer rounded-md bg-zinc-800 px-4 py-2.5 font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-200 dark:text-zinc-900 dark:hover:bg-white"
-	>
-		Draw the rest of the owl
-	</button>
-
 	<p data-owl-error class="hidden w-full text-center text-sm text-red-500"></p>
-
-	<section class="hidden w-full flex-col gap-3" data-owl-results-section>
-		<h3 class="m-0 text-sm font-medium uppercase tracking-wide text-zinc-400">
-			3 · AI pencil sketch
-		</h3>
-		<div class="mx-auto grid w-full max-w-5xl gap-8 sm:grid-cols-2" data-owl-grid></div>
-	</section>
 </div>
 
 <script>
@@ -91,44 +102,150 @@ const MAX_CIRCLES = 3;
 		{ id: "x-ai/grok-imagine-image-quality", settings: "1:1, 1K" },
 	];
 
-	type GenerationSuccess = {
-		model: string;
-		image: string;
-		latencyMs: number;
-		cost: number | null;
-		settings: string;
-	};
-
-	const MAX_CIRCLES = 3;
+	const MAX_CIRCLES = 2;
 	const PENCIL = "#374151";
+	const SKETCH_BLUR_PX = 12;
+	const UI_IDLE_FADE_OUT_MS = 5000;
+	const UI_IDLE_RESET_MS = 300;
+	const CIRCLE_BLUR_PX = 6;
+	const UI_REVEAL_FADE_MS = 1000;
+	const STEP2_DELAY_AFTER_AI_MS = 500;
+	const RESTART_DELAY_AFTER_STEP2_MS = 1500;
 
-	function formatCost(cost: number | null | undefined): string {
-		if (cost === null || cost === undefined) return "—";
-		if (cost < 0.01) return `$${cost.toFixed(4)}`;
-		return `$${cost.toFixed(3)}`;
+	const STEP2_LABEL = "2. Draw the rest of the owl";
+	const STEP2_CHEAT_LABEL = "2. Cheat with a procedurally generated owl...";
+	const STEP3_CHEAT_LABEL = "3. Draw the rest of the owl";
+	const CHEAT_PENCIL_FADE_MS = 1000;
+
+	const DEFAULT_CIRCLES: Circle[] = [
+		{ cx: 512, cy: 568, rx: 217, ry: 308 },
+		{ cx: 420, cy: 255, rx: 110, ry: 115 },
+	];
+
+	function hideOverlay(el: HTMLImageElement) {
+		el.style.transition = "none";
+		el.style.opacity = "0";
+		el.style.filter = "";
+		el.removeAttribute("src");
+		void el.offsetWidth;
+		el.style.transition = "";
+	}
+
+	function fadeInElement(el: HTMLElement, durationMs: number) {
+		el.style.transition = "none";
+		el.style.opacity = "0";
+		void el.offsetWidth;
+		el.style.transition = `opacity ${durationMs}ms ease`;
+		el.style.opacity = "1";
+	}
+
+	function fadeOutElement(el: HTMLElement, durationMs: number) {
+		el.style.transition = `opacity ${durationMs}ms ease`;
+		el.style.opacity = "0";
+	}
+
+	function fadeOverlay(
+		el: HTMLImageElement,
+		src: string,
+		durationMs: number,
+		options?: { blurFromPx?: number },
+	) {
+		const blurFromPx = options?.blurFromPx;
+		el.style.transition = "none";
+		el.style.opacity = "0";
+		if (blurFromPx != null) {
+			el.style.filter = `blur(${blurFromPx}px)`;
+		}
+		el.src = src;
+		void el.offsetWidth;
+		el.style.transition =
+			blurFromPx != null
+				? `opacity ${durationMs}ms ease, filter ${durationMs}ms ease`
+				: `opacity ${durationMs}ms ease`;
+		el.style.opacity = "1";
+		if (blurFromPx != null) {
+			el.style.filter = "blur(0px)";
+		}
+	}
+
+	function pixelLuminance(r: number, g: number, b: number) {
+		return 0.299 * r + 0.587 * g + 0.114 * b;
+	}
+
+	async function normalizeAiImageWhitePoint(dataUrl: string): Promise<string> {
+		const img = new Image();
+		await new Promise<void>((resolve, reject) => {
+			img.onload = () => resolve();
+			img.onerror = () => reject(new Error("Failed to load AI image."));
+			img.src = dataUrl;
+		});
+
+		const work = document.createElement("canvas");
+		work.width = img.naturalWidth;
+		work.height = img.naturalHeight;
+		const workCtx = work.getContext("2d");
+		if (!workCtx) return dataUrl;
+
+		workCtx.drawImage(img, 0, 0);
+		const imageData = workCtx.getImageData(0, 0, work.width, work.height);
+		const { data } = imageData;
+
+		let brightestIdx = 0;
+		let maxLuminance = -1;
+		for (let i = 0; i < data.length; i += 4) {
+			const lum = pixelLuminance(data[i]!, data[i + 1]!, data[i + 2]!);
+			if (lum > maxLuminance) {
+				maxLuminance = lum;
+				brightestIdx = i;
+			}
+		}
+
+		const scaleR = 255 / Math.max(data[brightestIdx]!, 1);
+		const scaleG = 255 / Math.max(data[brightestIdx + 1]!, 1);
+		const scaleB = 255 / Math.max(data[brightestIdx + 2]!, 1);
+
+		for (let i = 0; i < data.length; i += 4) {
+			data[i] = Math.min(255, Math.round(data[i]! * scaleR));
+			data[i + 1] = Math.min(255, Math.round(data[i + 1]! * scaleG));
+			data[i + 2] = Math.min(255, Math.round(data[i + 2]! * scaleB));
+		}
+
+		workCtx.putImageData(imageData, 0, 0);
+		return work.toDataURL("image/png");
 	}
 
 	document.querySelectorAll<HTMLElement>("[data-owl]").forEach((root) => {
 		const canvas = root.querySelector<HTMLCanvasElement>("[data-owl-canvas]");
 		const ctx = canvas?.getContext("2d");
-		const pencilCanvas = root.querySelector<HTMLCanvasElement>("[data-owl-pencil]");
-		if (!canvas || !ctx || !pencilCanvas) return;
+		if (!canvas || !ctx) return;
 
-		const pencilEmpty = root.querySelector<HTMLElement>("[data-owl-pencil-empty]")!;
-		const resultsSection = root.querySelector<HTMLElement>("[data-owl-results-section]")!;
-		const grid = root.querySelector<HTMLElement>("[data-owl-grid]")!;
-		const countLabel = root.querySelector<HTMLElement>("[data-owl-count]")!;
-		const undoBtn = root.querySelector<HTMLButtonElement>("[data-owl-undo]")!;
+		const pencilOverlay = root.querySelector<HTMLImageElement>("[data-owl-pencil-overlay]")!;
+		const aiOverlay = root.querySelector<HTMLImageElement>("[data-owl-ai-overlay]")!;
+		const step1Label = root.querySelector<HTMLElement>("[data-owl-step1]")!;
+		const step2Label = root.querySelector<HTMLElement>("[data-owl-step2]")!;
+		const bottomIdle = root.querySelector<HTMLElement>("[data-owl-bottom-idle]")!;
 		const clearBtn = root.querySelector<HTMLButtonElement>("[data-owl-clear]")!;
+		const restartBtn = root.querySelector<HTMLButtonElement>("[data-owl-restart]")!;
 		const compareBtn = root.querySelector<HTMLButtonElement>("[data-owl-compare]")!;
+		const cheatCheckbox = root.querySelector<HTMLInputElement>("[data-owl-cheat]")!;
 		const promptInput = root.querySelector<HTMLTextAreaElement>("[data-owl-prompt]")!;
 		const errorEl = root.querySelector<HTMLElement>("[data-owl-error]")!;
 
-		const circles: Circle[] = [];
+		const circles: Circle[] = DEFAULT_CIRCLES.map((c) => ({ ...c }));
 		let start: { x: number; y: number } | null = null;
 		let preview: Circle | null = null;
 		let loading = false;
+		let revealed = false;
+		let uiActive = false;
+		let cheatProceduralDone = false;
+		let cachedGuideImage: string | null = null;
+		let generationId = 0;
+		let uiTimeouts: ReturnType<typeof setTimeout>[] = [];
 		let models: ModelMeta[] = LOCAL_MODELS;
+
+		const pencilCanvas = document.createElement("canvas");
+		pencilCanvas.width = canvas.width;
+		pencilCanvas.height = canvas.height;
 
 		function strokeEllipse(c: Circle) {
 			ctx!.save();
@@ -151,78 +268,185 @@ const MAX_CIRCLES = 3;
 			if (preview) strokeEllipse(preview);
 		}
 
-		function renderPencil() {
-			pencilfyOwl(pencilCanvas!, circles);
-			pencilEmpty.classList.toggle("hidden", circles.length > 0);
+		function clearUiTimeouts() {
+			for (const timeout of uiTimeouts) clearTimeout(timeout);
+			uiTimeouts = [];
+		}
+
+		function isCheatMode() {
+			return cheatCheckbox.checked;
+		}
+
+		function setPencilBlendMode(useMultiply: boolean) {
+			pencilOverlay.classList.toggle("mix-blend-multiply", useMultiply);
+		}
+
+		function updateIdleLabels() {
+			if (isCheatMode()) {
+				step2Label.textContent = STEP2_CHEAT_LABEL;
+				compareBtn.textContent = cheatProceduralDone ? STEP3_CHEAT_LABEL : STEP2_CHEAT_LABEL;
+			} else {
+				step2Label.textContent = STEP2_LABEL;
+				compareBtn.textContent = STEP2_LABEL;
+			}
+		}
+
+		function buildGuideImages() {
+			pencilfyOwl(pencilCanvas, circles, { background: null });
+			const overlayImage = pencilCanvas.toDataURL("image/png");
+
+			const guideCanvas = document.createElement("canvas");
+			guideCanvas.width = pencilCanvas.width;
+			guideCanvas.height = pencilCanvas.height;
+			const guideCtx = guideCanvas.getContext("2d")!;
+			guideCtx.fillStyle = "#ffffff";
+			guideCtx.fillRect(0, 0, guideCanvas.width, guideCanvas.height);
+			guideCtx.drawImage(pencilCanvas, 0, 0);
+
+			return {
+				overlayImage,
+				guideImage: guideCanvas.toDataURL("image/png"),
+			};
+		}
+
+		function resetOverlays() {
+			generationId += 1;
+			revealed = false;
+			cheatProceduralDone = false;
+			cachedGuideImage = null;
+			clearUiTimeouts();
+			setPencilBlendMode(true);
+			hideOverlay(pencilOverlay);
+			hideOverlay(aiOverlay);
+		}
+
+		function blurCircleLayer(durationMs: number) {
+			canvas!.style.transition = "none";
+			canvas!.style.filter = "blur(0px)";
+			void canvas!.offsetWidth;
+			canvas!.style.transition = `filter ${durationMs}ms ease`;
+			canvas!.style.filter = `blur(${CIRCLE_BLUR_PX}px)`;
+		}
+
+		function resetCircleBlur() {
+			canvas!.style.transition = "none";
+			canvas!.style.filter = "";
+			void canvas!.offsetWidth;
+			canvas!.style.transition = "";
+		}
+
+		function beginDrawing() {
+			uiActive = true;
+			clearUiTimeouts();
+			step2Label.style.opacity = "0";
+			restartBtn.style.opacity = "0";
+			restartBtn.style.pointerEvents = "none";
+			fadeOutElement(step1Label, UI_IDLE_FADE_OUT_MS);
+			fadeOutElement(bottomIdle, UI_IDLE_FADE_OUT_MS);
+			bottomIdle.style.pointerEvents = "none";
+			blurCircleLayer(UI_IDLE_FADE_OUT_MS);
+		}
+
+		function beginCheatDrawing() {
+			uiActive = true;
+			clearUiTimeouts();
+			step1Label.style.transition = "none";
+			step1Label.style.opacity = "0";
+			step2Label.textContent = STEP2_CHEAT_LABEL;
+			step2Label.style.transition = "none";
+			step2Label.style.opacity = "1";
+			void step1Label.offsetWidth;
+			step1Label.style.transition = "";
+			step2Label.style.transition = "";
+			restartBtn.style.opacity = "0";
+			restartBtn.style.pointerEvents = "none";
+			fadeOutElement(bottomIdle, UI_IDLE_FADE_OUT_MS);
+			bottomIdle.style.pointerEvents = "none";
+		}
+
+		function revealCompleteUi(activeId: number, options?: { skipStep2?: boolean }) {
+			if (!options?.skipStep2) {
+				uiTimeouts.push(
+					setTimeout(() => {
+						if (activeId !== generationId) return;
+						fadeInElement(step2Label, UI_REVEAL_FADE_MS);
+					}, STEP2_DELAY_AFTER_AI_MS),
+				);
+			}
+
+			uiTimeouts.push(
+				setTimeout(() => {
+					if (activeId !== generationId) return;
+					fadeInElement(restartBtn, UI_REVEAL_FADE_MS);
+					restartBtn.style.pointerEvents = "auto";
+				}, options?.skipStep2
+					? RESTART_DELAY_AFTER_STEP2_MS
+					: STEP2_DELAY_AFTER_AI_MS + RESTART_DELAY_AFTER_STEP2_MS),
+			);
+		}
+
+		function showCheatStep2Ui() {
+			cheatProceduralDone = true;
+			uiActive = false;
+			compareBtn.textContent = STEP3_CHEAT_LABEL;
+			fadeInElement(bottomIdle, UI_REVEAL_FADE_MS);
+			bottomIdle.style.pointerEvents = "auto";
+			syncControls();
+		}
+
+		function resetUi() {
+			uiActive = false;
+			clearUiTimeouts();
+			resetCircleBlur();
+			step1Label.style.transition = `opacity ${UI_IDLE_RESET_MS}ms ease`;
+			step1Label.style.opacity = "1";
+			step2Label.style.transition = `opacity ${UI_IDLE_RESET_MS}ms ease`;
+			step2Label.style.opacity = "0";
+			bottomIdle.style.transition = `opacity ${UI_IDLE_RESET_MS}ms ease`;
+			bottomIdle.style.opacity = "1";
+			bottomIdle.style.pointerEvents = "auto";
+			restartBtn.style.transition = `opacity ${UI_IDLE_RESET_MS}ms ease`;
+			restartBtn.style.opacity = "0";
+			restartBtn.style.pointerEvents = "none";
+			updateIdleLabels();
+		}
+
+		function isCircleDrawingMode() {
+			return !uiActive && !loading && !revealed && !cheatProceduralDone;
+		}
+
+		function syncCursor() {
+			canvas!.classList.toggle("cursor-crosshair", isCircleDrawingMode());
 		}
 
 		function syncControls() {
-			countLabel.textContent = `${circles.length} / ${MAX_CIRCLES} circles`;
-			undoBtn.disabled = circles.length === 0 || loading;
-			clearBtn.disabled = circles.length === 0 || loading;
-			compareBtn.disabled = circles.length === 0 || loading;
+			clearBtn.disabled = circles.length === 0 || (uiActive && !cheatProceduralDone);
+			const awaitingCheatAi = isCheatMode() && cheatProceduralDone;
+			compareBtn.disabled =
+				circles.length === 0 ||
+				loading ||
+				revealed ||
+				(uiActive && !awaitingCheatAi);
 			promptInput.disabled = loading;
+			syncCursor();
+		}
+
+		function clearAll() {
+			circles.length = 0;
+			resetOverlays();
+			resetUi();
+			setError("");
+			render();
+			syncControls();
+		}
+
+		function restart() {
+			clearAll();
 		}
 
 		function setError(message: string) {
 			errorEl.textContent = message;
 			errorEl.classList.toggle("hidden", !message);
-		}
-
-		function createCard(model: ModelMeta, circlesImage: string): HTMLElement {
-			const card = document.createElement("article");
-			card.className =
-				"not-prose flex flex-col overflow-hidden rounded-lg border border-zinc-300 bg-white shadow-sm dark:border-zinc-600";
-			card.dataset.model = model.id;
-
-			card.innerHTML = `
-				<div class="group relative aspect-square w-full bg-white">
-					<div class="absolute inset-0 flex items-center justify-center p-4 text-center text-sm text-zinc-400" data-card-status>
-						<span class="animate-pulse">Generating…</span>
-					</div>
-					<img alt="" class="absolute inset-0 hidden h-full w-full object-contain" data-card-image />
-					<img
-						src="${circlesImage}"
-						alt="Original circles guide"
-						class="pointer-events-none absolute inset-0 h-full w-full object-contain opacity-0 transition-opacity duration-150 group-hover:opacity-90"
-						data-card-overlay
-					/>
-				</div>
-				<div class="flex flex-col gap-1.5 border-t border-zinc-200 bg-white p-4 text-sm dark:border-zinc-700">
-					<p class="m-0 font-mono font-medium text-black" data-card-model></p>
-					<p class="m-0 text-zinc-600" data-card-meta></p>
-				</div>
-			`;
-
-			card.querySelector("[data-card-model]")!.textContent = model.id;
-			card.querySelector("[data-card-meta]")!.textContent = `Settings: ${model.settings}`;
-
-			return card;
-		}
-
-		function setCardSuccess(card: HTMLElement, result: GenerationSuccess) {
-			const status = card.querySelector<HTMLElement>("[data-card-status]")!;
-			const img = card.querySelector<HTMLImageElement>("[data-card-image]")!;
-			const meta = card.querySelector<HTMLElement>("[data-card-meta]")!;
-
-			img.src = result.image;
-			img.alt = `Owl from ${result.model}`;
-			img.classList.remove("hidden");
-			status.classList.add("hidden");
-
-			meta.textContent = `${result.latencyMs}ms · ${formatCost(result.cost)} · ${result.settings}`;
-		}
-
-		function setCardError(card: HTMLElement, model: ModelMeta, message: string, latencyMs?: number) {
-			const status = card.querySelector<HTMLElement>("[data-card-status]")!;
-			const meta = card.querySelector<HTMLElement>("[data-card-meta]")!;
-
-			status.classList.remove("animate-pulse");
-			status.innerHTML = `<span class="text-red-500">${message}</span>`;
-			meta.textContent =
-				latencyMs !== undefined
-					? `Failed after ${latencyMs}ms · Settings: ${model.settings}`
-					: `Settings: ${model.settings}`;
 		}
 
 		async function loadModels() {
@@ -238,43 +462,25 @@ const MAX_CIRCLES = 3;
 			}
 		}
 
-		async function generateOne(guideImage: string, model: ModelMeta, card: HTMLElement) {
-			const startedAt = performance.now();
-			try {
-				const response = await fetch("/api/drawOwl", {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						image: guideImage,
-						model: model.id,
-						prompt: promptInput.value.trim(),
-					}),
-				});
+		async function requestAiImage(guideImage: string, model: ModelMeta): Promise<string> {
+			const response = await fetch("/api/drawOwl", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					image: guideImage,
+					model: model.id,
+					prompt: promptInput.value.trim(),
+				}),
+			});
 
-				const data = await response.json().catch(() => ({}));
-				const roundTripMs = Math.round(performance.now() - startedAt);
-
-				if (!response.ok) {
-					setCardError(card, model, data.message ?? `HTTP ${response.status}`, roundTripMs);
-					return;
-				}
-
-				setCardSuccess(card, {
-					model: data.model ?? model.id,
-					image: data.image,
-					latencyMs: data.latencyMs ?? roundTripMs,
-					cost: data.cost ?? null,
-					settings: data.settings ?? model.settings,
-				});
-			} catch (err) {
-				const roundTripMs = Math.round(performance.now() - startedAt);
-				setCardError(
-					card,
-					model,
-					err instanceof Error ? err.message : "Request failed",
-					roundTripMs,
-				);
+			const data = await response.json().catch(() => ({}));
+			if (!response.ok) {
+				throw new Error(data.message ?? `HTTP ${response.status}`);
 			}
+			if (typeof data.image !== "string") {
+				throw new Error("No image returned.");
+			}
+			return normalizeAiImageWhitePoint(data.image);
 		}
 
 		function toCanvasPoint(e: PointerEvent) {
@@ -295,7 +501,7 @@ const MAX_CIRCLES = 3;
 		}
 
 		canvas.addEventListener("pointerdown", (e) => {
-			if (loading || circles.length >= MAX_CIRCLES) return;
+			if (!isCircleDrawingMode() || circles.length >= MAX_CIRCLES) return;
 			canvas.setPointerCapture(e.pointerId);
 			start = toCanvasPoint(e);
 		});
@@ -313,66 +519,114 @@ const MAX_CIRCLES = 3;
 			start = null;
 			preview = null;
 			render();
-			renderPencil();
 			syncControls();
 		}
 
 		canvas.addEventListener("pointerup", finishStroke);
 		canvas.addEventListener("pointercancel", finishStroke);
 
-		undoBtn.addEventListener("click", () => {
-			circles.pop();
-			render();
-			renderPencil();
-			syncControls();
+		clearBtn.addEventListener("click", clearAll);
+		restartBtn.addEventListener("click", restart);
+
+		cheatCheckbox.addEventListener("change", () => {
+			if (!uiActive && !loading && !revealed && !cheatProceduralDone) {
+				updateIdleLabels();
+			}
 		});
 
-		clearBtn.addEventListener("click", () => {
-			circles.length = 0;
-			resultsSection.classList.add("hidden");
-			resultsSection.classList.remove("flex");
-			grid.replaceChildren();
-			render();
-			renderPencil();
+		async function runAiGeneration(activeId: number, guideImage: string, model: ModelMeta) {
+			loading = true;
+			setError("");
+			if (isCheatMode() && cheatProceduralDone) {
+				uiActive = true;
+				fadeOutElement(bottomIdle, UI_IDLE_FADE_OUT_MS);
+				bottomIdle.style.pointerEvents = "none";
+			}
 			syncControls();
-		});
+
+			try {
+				const image = await requestAiImage(guideImage, model);
+				if (activeId !== generationId) return;
+				fadeOverlay(aiOverlay, image, 1000, { blurFromPx: SKETCH_BLUR_PX });
+				if (isCheatMode() && cheatProceduralDone) {
+					step2Label.textContent = STEP3_CHEAT_LABEL;
+				}
+				revealCompleteUi(activeId, { skipStep2: isCheatMode() && cheatProceduralDone });
+				revealed = true;
+			} catch (err) {
+				if (activeId !== generationId) return;
+				if (isCheatMode() && cheatProceduralDone) {
+					uiActive = false;
+					bottomIdle.style.opacity = "1";
+					bottomIdle.style.pointerEvents = "auto";
+				} else {
+					resetUi();
+				}
+				setError(err instanceof Error ? err.message : "Request failed");
+			} finally {
+				if (activeId === generationId) {
+					loading = false;
+					syncControls();
+				}
+			}
+		}
 
 		compareBtn.addEventListener("click", async () => {
-			if (circles.length === 0 || loading) return;
+			if (circles.length === 0 || loading || revealed) return;
+			if (uiActive && !(isCheatMode() && cheatProceduralDone)) return;
 
 			if (models.length === 0) {
 				await loadModels();
 			}
-			if (models.length === 0) {
+			const model = models[0];
+			if (!model) {
 				setError("Could not load model list.");
 				return;
 			}
 
-			loading = true;
-			setError("");
-			syncControls();
-
-			renderPencil();
-			const circlesImage = canvas.toDataURL("image/png");
-			const guideImage = pencilCanvas.toDataURL("image/png");
-
-			resultsSection.classList.remove("hidden");
-			resultsSection.classList.add("flex");
-			grid.replaceChildren();
-
-			for (const model of models) {
-				const card = createCard(model, circlesImage);
-				grid.appendChild(card);
-				void generateOne(guideImage, model, card);
+			if (isCheatMode() && cheatProceduralDone) {
+				if (!cachedGuideImage) return;
+				const id = ++generationId;
+				await runAiGeneration(id, cachedGuideImage, model);
+				return;
 			}
 
-			loading = false;
+			if (isCheatMode()) {
+				const id = ++generationId;
+				setError("");
+				beginCheatDrawing();
+
+				const { overlayImage, guideImage } = buildGuideImages();
+				cachedGuideImage = guideImage;
+				setPencilBlendMode(false);
+				fadeOverlay(pencilOverlay, overlayImage, CHEAT_PENCIL_FADE_MS, {
+					blurFromPx: SKETCH_BLUR_PX,
+				});
+
+				uiTimeouts.push(
+					setTimeout(() => {
+						if (id !== generationId) return;
+						showCheatStep2Ui();
+					}, CHEAT_PENCIL_FADE_MS),
+				);
+				return;
+			}
+
+			const id = ++generationId;
+			setError("");
+			beginDrawing();
 			syncControls();
+
+			const { overlayImage, guideImage } = buildGuideImages();
+			setPencilBlendMode(true);
+			fadeOverlay(pencilOverlay, overlayImage, 5000);
+
+			await runAiGeneration(id, guideImage, model);
 		});
 
 		void loadModels();
+		updateIdleLabels();
 		render();
-		renderPencil();
 		syncControls();
 	});
 </script>

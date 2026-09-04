@@ -413,7 +413,7 @@ const INK = "55, 65, 81";
 const ink = (alpha: number) => `rgba(${INK}, ${alpha})`;
 
 /** The stroke "roles" any part can ask the theme for. */
-type InkRole = "outline" | "mergedOutline" | "tail" | "detail" | "feather" | "fill";
+type InkRole = "outline" | "mergedOutline" | "tail" | "detail" | "feather" | "faceFeather" | "fill";
 
 /** Named, overridable geometry ratios. All are fractions of head/body radii. */
 type Proportions = {
@@ -467,6 +467,8 @@ type Proportions = {
 	/** Row spacing as a multiple of feather length (lower = denser). */
 	featherSpacing: number;
 	featherBaseFill: number;
+	/** Random darkening added to each scale fill, up to this fraction (e.g. 0.1). */
+	featherFillVariation: number;
 	faceLayers: number;
 	faceSpread: number;
 	faceFeatherSpan: number;
@@ -521,10 +523,11 @@ const DEFAULT_PROPORTIONS: Proportions = {
 	featherAspect: 2,
 	featherSpacing: 0.42,
 	featherBaseFill: 0.35,
-	faceLayers: 6,
+	featherFillVariation: 0.1,
+	faceLayers: 8,
 	faceSpread: 1.45,
-	faceFeatherSpan: 0.34,
-	faceDensity: 26,
+	faceFeatherSpan: 0.28,
+	faceDensity: 34,
 };
 
 const DEFAULT_THEME: Theme = {
@@ -553,6 +556,7 @@ const DEFAULT_THEME: Theme = {
 		},
 		detail: { roughness: 2.1, bowing: 1.2, stroke: ink(0.5), strokeWidth: 3 },
 		feather: { roughness: 2.1, bowing: 1.2, stroke: ink(0.15), strokeWidth: 3 },
+		faceFeather: { roughness: 2.1, bowing: 1.2, stroke: ink(0.08), strokeWidth: 2.5 },
 		fill: {
 			roughness: 1.4,
 			stroke: ink(0.75),
@@ -731,7 +735,32 @@ function wingFeatherSize(len: number, aspect: number): { along: number; across: 
 	return { along, across };
 }
 
-const FEATHER_WING_FILL = { fill: "#ecece6", fillStyle: "solid" as const };
+const FEATHER_WING_FILL = "#ecece6";
+const FEATHER_BODY_FILL = "#ffffff";
+
+/** Slightly darken a hex fill by up to `variation` × 255 (e.g. 0.1 ≈ random/10). */
+function varyScaleFill(
+	baseHex: string,
+	variation: number,
+): { fill: string; fillStyle: "solid" } {
+	if (variation <= 0) return { fill: baseHex, fillStyle: "solid" };
+
+	const n = Number.parseInt(baseHex.slice(1), 16);
+	const r = (n >> 16) & 255;
+	const g = (n >> 8) & 255;
+	const b = n & 255;
+	const shade = Math.round(Math.random() * variation * 255);
+	const byte = (v: number) => Math.max(0, Math.min(255, v)).toString(16).padStart(2, "0");
+
+	return {
+		fill: `#${byte(r - shade)}${byte(g - shade)}${byte(b - shade)}`,
+		fillStyle: "solid",
+	};
+}
+
+function scaleStyle(feather: Options, baseHex: string, variation: number): Options {
+	return { ...feather, ...varyScaleFill(baseHex, variation) };
+}
 
 /** X coordinate where the belly→beak split line crosses a given row. */
 function scaleLineXAtY(x0: number, y0: number, x1: number, y1: number, y: number): number {
@@ -757,7 +786,8 @@ type FishscaleDrawArgs = {
 	splitY1: number;
 	rowSpan: (rowY: number) => [number, number] | null;
 	sizeScale: (rowY: number, tRow: number, px: number) => number;
-	fill: (px: number, rowY: number) => Options;
+	fill: (px: number, rowY: number) => string;
+	fillVariation: number;
 };
 
 /** Bottom-up fishscales split at the belly→beak line: left half L→R, right half R→L. */
@@ -780,6 +810,7 @@ function drawSplitFishscales(args: FishscaleDrawArgs) {
 		rowSpan,
 		sizeScale,
 		fill,
+		fillVariation,
 	} = args;
 
 	for (let r = rows - 1; r >= 0; r--) {
@@ -802,7 +833,16 @@ function drawSplitFishscales(args: FishscaleDrawArgs) {
 
 			const { along, across } = wingFeatherSize(len, aspect);
 			const tilt = featherTilt(px, body);
-			drawRotatedEllipse(rc, ctx, px, rowY, across, along, tilt, { ...feather, ...fill(px, rowY) });
+			drawRotatedEllipse(
+				rc,
+				ctx,
+				px,
+				rowY,
+				across,
+				along,
+				tilt,
+				scaleStyle(feather, fill(px, rowY), fillVariation),
+			);
 		};
 
 		for (let col = 0; ; col++) {
@@ -925,6 +965,7 @@ const tailFeathersPart: Part = {
 			rowSpan: (rowY) => polygonSpanAtY(rowY, geo.points),
 			sizeScale: (_rowY, tRow) => lerp(0.78, 1, tRow),
 			fill: () => FEATHER_WING_FILL,
+			fillVariation: p.featherFillVariation,
 		});
 
 		ctx.restore();
@@ -964,8 +1005,6 @@ function isWingScale(
 	const inwardFrac = (halfWidth - Math.abs(px - body.cx)) / halfWidth;
 	return inwardFrac <= fillFrac;
 }
-
-const FEATHER_BODY_FILL = { fill: "#ffffff", fillStyle: "solid" as const };
 
 // Fishscale ovals covering the whole body.
 // ovals stay mostly horizontal with a slight flank lean. White fill everywhere;
@@ -1021,6 +1060,7 @@ const feathersPart: Part = {
 				isWingScale(px, rowY, body, face, p.featherBaseFill, beakY)
 					? FEATHER_WING_FILL
 					: FEATHER_BODY_FILL,
+			fillVariation: p.featherFillVariation,
 		});
 
 		ctx.restore();
@@ -1191,44 +1231,48 @@ const feetPart: Part = {
 	},
 };
 
-// The facial disc: feathers that radiate outward from the centre of the face in
-// several overlapping layers, planted on the head sphere so they lie flat on
-// the surface and track the head as it turns (rather than hovering off it).
-// Each feather spans a small arc (β → β + span) at a fixed azimuth, so it
-// points outward and foreshortens correctly toward the limb; feathers on the
-// back hemisphere are culled. Reuses the wing feather mark, a touch smaller.
+// The facial disc: concentric fishscale rings on the head sphere. Ovals stay
+// squat (wide across the ring, short along the radial) and still emanate from
+// the face centre so they track the head as it turns. Outer rings draw first
+// so inner scales overlap them. Back-hemisphere feathers are culled.
 const faceDiscPart: Part = {
 	id: "faceDisc",
 	z: 28,
 	draw({ rc, ctx, owl, theme }) {
+		const { head } = owl;
 		const p = theme.proportions;
-		const feather = theme.styles.feather;
+		const faceFeather = theme.styles.faceFeather;
+		const span = p.faceFeatherSpan;
 
-		for (let layer = 0; layer < p.faceLayers; layer++) {
-			// β is the angular distance from the face-forward axis (0 = centre).
+		ctx.save();
+		ctx.beginPath();
+		ctx.ellipse(head.cx, head.cy, head.rx, head.ry, 0, 0, Math.PI * 2);
+		ctx.clip();
+
+		for (let layer = p.faceLayers - 1; layer >= 0; layer--) {
 			const rho = (layer + 0.5) / p.faceLayers;
 			const layerBeta = rho * p.faceSpread;
-
-			// Wider layers wrap more of the sphere, so they hold more feathers.
 			const count = Math.max(6, Math.round(p.faceDensity * Math.sin(layerBeta)));
-			const layerOffset = layer * 0.4;
+			const step = (Math.PI * 2) / count;
+			const stagger = (layer % 2) * (step * 0.5);
 
 			for (let i = 0; i < count; i++) {
-				const alpha = (i / count) * Math.PI * 2 + layerOffset + rand(-0.18, 0.18);
-				const beta = layerBeta + rand(-0.05, 0.05);
-				const span = p.faceFeatherSpan * rand(0.8, 1.2);
-
+				const alpha = i * step + stagger;
 				const ca = Math.cos(alpha);
 				const sa = Math.sin(alpha);
-				const base = projectFaceDir(owl, Math.sin(beta) * ca, Math.sin(beta) * sa, Math.cos(beta));
+				const base = projectFaceDir(
+					owl,
+					Math.sin(layerBeta) * ca,
+					Math.sin(layerBeta) * sa,
+					Math.cos(layerBeta),
+				);
 				if (base.depth <= 0.05) continue;
 
-				const betaTip = beta + span;
 				const tip = projectFaceDir(
 					owl,
-					Math.sin(betaTip) * ca,
-					Math.sin(betaTip) * sa,
-					Math.cos(betaTip),
+					Math.sin(layerBeta + span) * ca,
+					Math.sin(layerBeta + span) * sa,
+					Math.cos(layerBeta + span),
 				);
 
 				const dx = tip.x - base.x;
@@ -1238,14 +1282,23 @@ const faceDiscPart: Part = {
 
 				const px = (base.x + tip.x) / 2;
 				const py = (base.y + tip.y) / 2;
-				const angle = Math.atan2(dy, dx) + rand(-5, 5) * (Math.PI / 180);
+				const angle = Math.atan2(dy, dx);
+				const { along, across } = wingFeatherSize(len, p.featherAspect);
 
-				drawRotatedEllipse(rc, ctx, px, py, len, Math.max(2, len * 0.4), angle, {
-					...feather,
-					...WHITE_FILL,
-				});
+				drawRotatedEllipse(
+					rc,
+					ctx,
+					px,
+					py,
+					along,
+					across,
+					angle,
+					scaleStyle(faceFeather, FEATHER_BODY_FILL, p.featherFillVariation),
+				);
 			}
 		}
+
+		ctx.restore();
 	},
 };
 
@@ -1370,12 +1423,20 @@ const PARTS: Part[] = [
  * body, and a single facing value (−1…1) smoothly drives eyes, beak, feet, and
  * feathers toward profile — hiding the far side entirely at ±1.
  */
-export function pencilfyOwl(canvas: HTMLCanvasElement, circles: OwlCircle[]): void {
+export function pencilfyOwl(
+	canvas: HTMLCanvasElement,
+	circles: OwlCircle[],
+	options?: { background?: string | null },
+): void {
 	const ctx = canvas.getContext("2d");
 	if (!ctx) return;
 
-	ctx.fillStyle = "#ffffff";
-	ctx.fillRect(0, 0, canvas.width, canvas.height);
+	if (options?.background === null) {
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+	} else {
+		ctx.fillStyle = options?.background ?? "#ffffff";
+		ctx.fillRect(0, 0, canvas.width, canvas.height);
+	}
 	if (circles.length === 0) return;
 
 	const rc = rough.canvas(canvas);

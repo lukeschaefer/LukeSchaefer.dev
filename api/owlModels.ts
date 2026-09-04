@@ -1,9 +1,9 @@
-export const OWL_PROMPT = `Edit this image: it is a rough sketch of an owl
-It has eyes, a beak, feet, and feather marks already roughed in - possibly a branch it's standing on.
-Draw the rest of the owl as a professional and cohesive graphite pencil sketch.
-KEEP THE POSE AND PROPORTIONS, which may be abnormal and unreal.
-Plain white background, turn this sketch into a skillful artistic result.
-STICK TO THE GUIDE MARKS, with beautiful feathers, talons, eyes, beak.`;
+export const OWL_PROMPT = `This is a rough construction sketch, not a finished drawing.
+Use it only for approximate pose, head/body placement, and facing direction.
+Do not trace the guide marks, feather ticks, or construction lines.
+Interpret freely: add believable anatomy, volume, and graphite shading.
+The result should look like a realistic hand drawn artist sketch, inspired by the wireframe.
+White background, black and white, rough charcoal sketch`;
 
 export type OwlModelConfig = {
 	id: string;
