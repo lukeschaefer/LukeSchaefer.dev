@@ -1,4 +1,5 @@
 import { callOpenRouterImageEdit } from "./openrouterImage";
+import { getOwlCount, incrementOwlCount } from "./owlCount";
 import { getOwlModel, OWL_MODELS, OWL_PROMPT } from "./owlModels";
 
 function jsonError(message: string, status: number, extra?: Record<string, unknown>) {
@@ -12,6 +13,7 @@ export async function GET(): Promise<Response> {
 	return Response.json(
 		{
 			prompt: OWL_PROMPT,
+			owls: await getOwlCount(),
 			models: OWL_MODELS.map((m) => ({
 				id: m.id,
 				settings: m.settingsLabel,
@@ -56,6 +58,8 @@ export async function POST(request: Request): Promise<Response> {
 			chatParams: config.chatParams,
 		});
 
+		const owls = await incrementOwlCount();
+
 		return Response.json(
 			{
 				model: config.id,
@@ -64,6 +68,7 @@ export async function POST(request: Request): Promise<Response> {
 				cost: result.cost,
 				settings: config.settingsLabel,
 				usage: result.usage,
+				owls,
 			},
 			{ headers: { "Cache-Control": "no-store" } },
 		);

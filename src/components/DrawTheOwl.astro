@@ -4,74 +4,112 @@ import { OWL_PROMPT } from "../../api/owlModels";
 const MAX_CIRCLES = 2;
 ---
 
-<div class="not-prose my-8 mx-auto flex w-full max-w-xl flex-col items-center" data-owl>
+<div
+	class="group not-prose my-8 mx-auto flex w-full max-w-xl flex-col items-center transition-[max-width] duration-700 ease-out data-[stats-open]:max-w-[46.75rem]"
+	data-owl
+>
 	<label class="hidden">
 		<input data-owl-cheat type="checkbox" />
 		<span>Cheat mode (debug)</span>
 	</label>
 
-	<figure class="m-0 w-full">
-		<div
-			class="relative isolate overflow-hidden rounded-lg border border-zinc-300 bg-white shadow-sm dark:border-zinc-600"
-		>
-			<canvas
-				data-owl-canvas
-				width="1024"
-				height="1024"
-				class="aspect-square w-full cursor-crosshair touch-none bg-white"
-			></canvas>
-			<img
-				data-owl-pencil-overlay
-				alt=""
-				class="pointer-events-none absolute inset-0 h-full w-full object-contain opacity-0 mix-blend-multiply blur-md"
-			/>
-			<img
-				data-owl-ai-overlay
-				alt=""
-				class="pointer-events-none absolute inset-0 h-full w-full object-contain opacity-0"
-			/>
-			<p
-				data-owl-step1
-				class="pointer-events-none absolute left-4 top-4 z-10 m-0 text-[16px] font-['Comic_Sans_MS','Comic_Sans',cursive] text-black sm:left-6 sm:top-5 sm:text-[20px]"
+	<div class="flex w-full flex-col sm:flex-row sm:items-stretch sm:justify-center">
+		<figure class="m-0 w-full min-w-0 sm:max-w-xl">
+			<div
+				class="relative isolate overflow-hidden rounded-lg border border-zinc-300 bg-white shadow-sm dark:border-zinc-600"
 			>
-				1. Draw some circles
-			</p>
-			<p
-				data-owl-step2
-				class="pointer-events-none absolute left-4 top-4 z-10 m-0 text-[16px] font-['Comic_Sans_MS','Comic_Sans',cursive] text-black opacity-0 sm:left-6 sm:top-5 sm:text-[20px]"
-			>
-				2. Draw the rest of the owl
-			</p>
-			<div class="absolute inset-x-3 bottom-2 z-10 sm:inset-x-4 sm:bottom-3">
-				<div
-					data-owl-bottom-idle
-					class="flex items-center gap-2 sm:gap-4"
+				<canvas
+					data-owl-canvas
+					width="1024"
+					height="1024"
+					class="aspect-square w-full cursor-crosshair touch-none bg-white"
+				></canvas>
+				<img
+					data-owl-pencil-overlay
+					alt=""
+					class="pointer-events-none absolute inset-0 h-full w-full object-contain opacity-0 mix-blend-multiply blur-md"
+				/>
+				<img
+					data-owl-ai-overlay
+					alt=""
+					class="pointer-events-none absolute inset-0 h-full w-full object-contain opacity-0"
+				/>
+				<p
+					data-owl-step1
+					class="pointer-events-none absolute left-4 top-4 z-10 m-0 text-[16px] font-['Comic_Sans_MS','Comic_Sans',cursive] text-black sm:left-6 sm:top-5 sm:text-[20px]"
 				>
-					<button
-						data-owl-compare
-						type="button"
-						class="min-w-0 flex-1 cursor-pointer appearance-none border-0 bg-transparent p-0 text-center text-[16px] font-['Comic_Sans_MS','Comic_Sans',cursive] text-black shadow-none outline-none disabled:cursor-not-allowed disabled:opacity-40 sm:text-[18px]"
+					1. Draw some circles
+				</p>
+				<p
+					data-owl-step2
+					class="pointer-events-none absolute left-4 top-4 z-10 m-0 text-[16px] font-['Comic_Sans_MS','Comic_Sans',cursive] text-black opacity-0 sm:left-6 sm:top-5 sm:text-[20px]"
+				>
+					2. Draw the rest of the owl
+				</p>
+				<div class="absolute inset-x-3 bottom-2 z-10 sm:inset-x-4 sm:bottom-3">
+					<div
+						data-owl-bottom-idle
+						class="flex items-center gap-2 sm:gap-4"
 					>
-						2. Draw the rest of the owl
-					</button>
+						<button
+							data-owl-compare
+							type="button"
+							class="min-w-0 flex-1 cursor-pointer appearance-none border-0 bg-transparent p-0 text-center text-[16px] font-['Comic_Sans_MS','Comic_Sans',cursive] text-black shadow-none outline-none disabled:cursor-not-allowed disabled:opacity-40 sm:text-[18px]"
+						>
+							2. Draw the rest of the owl
+						</button>
+						<button
+							data-owl-clear
+							type="button"
+							class="shrink-0 cursor-pointer appearance-none border border-transparent bg-transparent px-1.5 py-0.5 text-[16px] font-['Comic_Sans_MS','Comic_Sans',cursive] text-black shadow-none outline-none hover:border-black disabled:cursor-not-allowed disabled:opacity-40 sm:px-2 sm:text-[18px]"
+						>
+							Clear
+						</button>
+					</div>
 					<button
-						data-owl-clear
+						data-owl-restart
 						type="button"
-						class="shrink-0 cursor-pointer appearance-none border border-transparent bg-transparent px-1.5 py-0.5 text-[16px] font-['Comic_Sans_MS','Comic_Sans',cursive] text-black shadow-none outline-none hover:border-black disabled:cursor-not-allowed disabled:opacity-40 sm:px-2 sm:text-[18px]"
+						class="pointer-events-none absolute bottom-0 right-0 opacity-0 cursor-pointer appearance-none border-0 bg-transparent p-0 text-[16px] font-['Comic_Sans_MS','Comic_Sans',cursive] text-black shadow-none outline-none sm:text-[18px]"
 					>
-						Clear
+						Restart
 					</button>
 				</div>
-				<button
-					data-owl-restart
-					type="button"
-					class="pointer-events-none absolute bottom-0 right-0 opacity-0 cursor-pointer appearance-none border-0 bg-transparent p-0 text-[16px] font-['Comic_Sans_MS','Comic_Sans',cursive] text-black shadow-none outline-none sm:text-[18px]"
-				>
-					Restart
-				</button>
 			</div>
+		</figure>
+
+		<div
+			data-owl-stats
+			class="grid max-h-0 w-full grid-cols-2 gap-3 overflow-hidden font-['Comic_Sans_MS','Comic_Sans',cursive] transition-all duration-700 ease-out max-sm:group-data-[stats-open]:mt-3 max-sm:group-data-[stats-open]:max-h-96 sm:flex sm:w-0 sm:max-h-none sm:flex-col sm:group-data-[stats-open]:ml-3 sm:group-data-[stats-open]:w-40"
+		>
+			<div
+				class="order-1 flex flex-col items-center justify-center gap-1 rounded-lg border border-zinc-300 opacity-0 transition-opacity duration-500 bg-white px-2 py-3 text-center text-black shadow-sm dark:border-zinc-600 sm:order-1 sm:flex-1"
+			>
+				<span class="text-[12px]">Owls generated</span>
+				<span data-owl-stat-value class="text-[18px]">?</span>
+			</div>
+			<div
+				class="order-2 flex flex-col items-center justify-center gap-1 rounded-lg border border-zinc-300 opacity-0 transition-opacity duration-500 bg-white px-2 py-3 text-center text-black shadow-sm dark:border-zinc-600 sm:order-2 sm:flex-1"
+			>
+				<span class="text-[12px]">Owl budget consumed</span>
+				<span data-owl-stat-value class="text-[18px]">?</span>
+			</div>
+			<div
+				class="order-4 flex flex-col items-center justify-center gap-1 rounded-lg border border-zinc-300 opacity-0 transition-opacity duration-500 bg-white px-2 py-3 text-center text-black shadow-sm dark:border-zinc-600 sm:order-3 sm:flex-1"
+			>
+				<span class="text-[12px]">Owl budget remaining</span>
+				<span data-owl-stat-value class="text-[18px]">?</span>
+			</div>
+			<a
+				data-owl-contribute
+				href="https://buymeacoffee.com/luke.zip"
+				target="_blank"
+				rel="noreferrer"
+				class="order-3 flex cursor-pointer appearance-none flex-col items-center justify-center gap-1 rounded-lg border border-zinc-300 opacity-0 transition-opacity duration-500 bg-white px-2 py-3 text-center text-[14px] text-black no-underline shadow-sm outline-none hover:border-black dark:border-zinc-600 sm:order-4 sm:flex-1"
+			>
+				Contribute owl funds
+			</a>
 		</div>
-	</figure>
+	</div>
 
 	<label class="hidden">
 		<span>Prompt</span>
@@ -93,6 +131,7 @@ const MAX_CIRCLES = 2;
 	];
 
 	const MAX_CIRCLES = 2;
+	const OWL_BUDGET_USD = 50;
 	const PENCIL = "#374151";
 	const SKETCH_BLUR_PX = 12;
 	const UI_IDLE_FADE_OUT_MS = 5000;
@@ -101,6 +140,9 @@ const MAX_CIRCLES = 2;
 	const UI_REVEAL_FADE_MS = 1000;
 	const STEP2_DELAY_AFTER_AI_MS = 500;
 	const RESTART_DELAY_AFTER_STEP2_MS = 1500;
+
+	const STATS_EXPAND_MS = 700;
+	const STATS_STAGGER_MS = 200;
 
 	const STEP2_LABEL = "2. Draw the rest of the owl";
 	const STEP2_CHEAT_LABEL = "2. Cheat with a procedurally generated owl...";
@@ -162,6 +204,30 @@ const MAX_CIRCLES = 2;
 		return 0.299 * r + 0.587 * g + 0.114 * b;
 	}
 
+	const WHITE_POINT_HIGHLIGHT_FRACTION = 0.1;
+
+	function luminanceHistogram(data: Uint8ClampedArray) {
+		const hist = new Uint32Array(256);
+		for (let i = 0; i < data.length; i += 4) {
+			const y = Math.min(
+				255,
+				Math.round(pixelLuminance(data[i]!, data[i + 1]!, data[i + 2]!)),
+			);
+			hist[y]! += 1;
+		}
+		return hist;
+	}
+
+	/** Lowest luminance among the brightest `fraction` of pixels (e.g. 0.1 → 90th percentile). */
+	function highlightWhitePoint(hist: Uint32Array, pixelCount: number, fraction: number) {
+		let remaining = Math.max(1, Math.ceil(pixelCount * fraction));
+		for (let y = 255; y >= 0; y--) {
+			remaining -= hist[y]!;
+			if (remaining <= 0) return y;
+		}
+		return 0;
+	}
+
 	async function normalizeAiImageWhitePoint(dataUrl: string): Promise<string> {
 		const img = new Image();
 		await new Promise<void>((resolve, reject) => {
@@ -179,25 +245,54 @@ const MAX_CIRCLES = 2;
 		workCtx.drawImage(img, 0, 0);
 		const imageData = workCtx.getImageData(0, 0, work.width, work.height);
 		const { data } = imageData;
+		const pixelCount = data.length / 4;
 
-		let brightestIdx = 0;
-		let maxLuminance = -1;
+		const hist = luminanceHistogram(data);
+		const whitePoint = highlightWhitePoint(
+			hist,
+			pixelCount,
+			WHITE_POINT_HIGHLIGHT_FRACTION,
+		);
+
+		if (whitePoint >= 255 || whitePoint < 1) return dataUrl;
+
+		// Average RGB at the threshold so cream paper becomes true white, not brighter cream.
+		let sumR = 0;
+		let sumG = 0;
+		let sumB = 0;
+		let n = 0;
 		for (let i = 0; i < data.length; i += 4) {
-			const lum = pixelLuminance(data[i]!, data[i + 1]!, data[i + 2]!);
-			if (lum > maxLuminance) {
-				maxLuminance = lum;
-				brightestIdx = i;
-			}
+			const y = Math.min(
+				255,
+				Math.round(pixelLuminance(data[i]!, data[i + 1]!, data[i + 2]!)),
+			);
+			if (y !== whitePoint) continue;
+			sumR += data[i]!;
+			sumG += data[i + 1]!;
+			sumB += data[i + 2]!;
+			n += 1;
 		}
 
-		const scaleR = 255 / Math.max(data[brightestIdx]!, 1);
-		const scaleG = 255 / Math.max(data[brightestIdx + 1]!, 1);
-		const scaleB = 255 / Math.max(data[brightestIdx + 2]!, 1);
+		const whiteR = n > 0 ? sumR / n : whitePoint;
+		const whiteG = n > 0 ? sumG / n : whitePoint;
+		const whiteB = n > 0 ? sumB / n : whitePoint;
+		const scaleR = 255 / Math.max(whiteR, 1);
+		const scaleG = 255 / Math.max(whiteG, 1);
+		const scaleB = 255 / Math.max(whiteB, 1);
+
+		const curveR = new Uint8Array(256);
+		const curveG = new Uint8Array(256);
+		const curveB = new Uint8Array(256);
+		for (let v = 0; v < 256; v++) {
+			curveR[v] = Math.min(255, Math.round(v * scaleR));
+			curveG[v] = Math.min(255, Math.round(v * scaleG));
+			curveB[v] = Math.min(255, Math.round(v * scaleB));
+		}
 
 		for (let i = 0; i < data.length; i += 4) {
-			data[i] = Math.min(255, Math.round(data[i]! * scaleR));
-			data[i + 1] = Math.min(255, Math.round(data[i + 1]! * scaleG));
-			data[i + 2] = Math.min(255, Math.round(data[i + 2]! * scaleB));
+			data[i] = curveR[data[i]!]!;
+			data[i + 1] = curveG[data[i + 1]!]!;
+			data[i + 2] = curveB[data[i + 2]!]!;
 		}
 
 		workCtx.putImageData(imageData, 0, 0);
@@ -220,6 +315,12 @@ const MAX_CIRCLES = 2;
 		const cheatCheckbox = root.querySelector<HTMLInputElement>("[data-owl-cheat]")!;
 		const promptInput = root.querySelector<HTMLTextAreaElement>("[data-owl-prompt]")!;
 		const errorEl = root.querySelector<HTMLElement>("[data-owl-error]")!;
+		const statsPanel = root.querySelector<HTMLElement>("[data-owl-stats]")!;
+		const statBoxes = Array.from(statsPanel.children) as HTMLElement[];
+		const statValues = statBoxes.slice(0, 3).map((box) =>
+			box.querySelector<HTMLElement>("[data-owl-stat-value]"),
+		);
+		let statsRevealed = false;
 
 		const circles: Circle[] = DEFAULT_CIRCLES.map((c) => ({ ...c }));
 		let start: { x: number; y: number } | null = null;
@@ -439,6 +540,32 @@ const MAX_CIRCLES = 2;
 			errorEl.classList.toggle("hidden", !message);
 		}
 
+		function revealOwlStats() {
+			if (statsRevealed) return;
+			statsRevealed = true;
+			root.setAttribute("data-stats-open", "");
+			statBoxes.forEach((box, index) => {
+				setTimeout(() => {
+					box.style.opacity = "1";
+				}, STATS_EXPAND_MS + index * STATS_STAGGER_MS);
+			});
+		}
+
+		function updateOwlStats(owls: unknown) {
+			const count = Number(owls);
+			if (!Number.isFinite(count)) return;
+
+			const [countEl, consumedEl, remainingEl] = statValues;
+			if (!countEl || !consumedEl || !remainingEl) return;
+
+			const consumed = count * 0.06;
+			const remaining = Math.max(0, OWL_BUDGET_USD - consumed);
+
+			countEl.textContent = String(count);
+			consumedEl.textContent = `$${consumed.toFixed(2)}`;
+			remainingEl.textContent = `$${remaining.toFixed(2)}`;
+		}
+
 		async function loadModels() {
 			try {
 				const response = await fetch("/api/drawOwl");
@@ -447,6 +574,7 @@ const MAX_CIRCLES = 2;
 				if (Array.isArray(data.models) && data.models.length > 0) {
 					models = data.models;
 				}
+				updateOwlStats(data.owls);
 			} catch {
 				// Keep the bundled model list if the API isn't available yet
 			}
@@ -470,6 +598,7 @@ const MAX_CIRCLES = 2;
 			if (typeof data.image !== "string") {
 				throw new Error("No image returned.");
 			}
+			updateOwlStats(data.owls);
 			return normalizeAiImageWhitePoint(data.image);
 		}
 
@@ -538,6 +667,7 @@ const MAX_CIRCLES = 2;
 				const image = await requestAiImage(guideImage, model);
 				if (activeId !== generationId) return;
 				fadeOverlay(aiOverlay, image, 1000, { blurFromPx: SKETCH_BLUR_PX });
+				revealOwlStats();
 				if (isCheatMode() && cheatProceduralDone) {
 					step2Label.textContent = STEP3_CHEAT_LABEL;
 				}
