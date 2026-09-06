@@ -1,10 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
+import { canGenerateOwl } from "./owlBudget";
 import { CircleRequestError, circlesMatchDefault, parseRequestCircles } from "./owlCircles";
 import { renderOwlGuideDataUrl } from "./owlGuide";
 import { OWL_MODEL, OWL_PROMPT } from "./owlModels";
 import { callOpenRouterImageEdit } from "./openrouterImage";
-import { getOwlCount, incrementOwlCount } from "./owlCount";
+import { getOwlEconomy, incrementOwlCount } from "./owlCount";
 
 const PRESET_OWL_FILES = ["owl1.png", "owl2.png", "owl3.png"] as const;
 const PRESET_DELAY_MS = 2000;
@@ -27,10 +28,9 @@ function readPresetOwlDataUrl(): string {
 }
 
 export async function GET(): Promise<Response> {
-	return Response.json(
-		{ owls: await getOwlCount() },
-		{ headers: { "Cache-Control": "no-store" } },
-	);
+	return Response.json(await getOwlEconomy(), {
+		headers: { "Cache-Control": "no-store" },
+	});
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -51,13 +51,26 @@ export async function POST(request: Request): Promise<Response> {
 		throw error;
 	}
 
+	const economy = await getOwlEconomy();
+	if (!canGenerateOwl(economy.owls, economy.budget)) {
+		return Response.json(
+			{
+				error: "budget",
+				message: "Owl budget depleted.",
+				owls: economy.owls,
+				budget: economy.budget,
+			},
+			{ status: 402, headers: { "Cache-Control": "no-store" } },
+		);
+	}
+
 	try {
 		if (circlesMatchDefault(circles)) {
 			await sleep(PRESET_DELAY_MS);
 			const image = readPresetOwlDataUrl();
 			const owls = await incrementOwlCount();
 			return Response.json(
-				{ image, owls },
+				{ image, owls, budget: economy.budget },
 				{ headers: { "Cache-Control": "no-store" } },
 			);
 		}
@@ -76,7 +89,7 @@ export async function POST(request: Request): Promise<Response> {
 		const owls = await incrementOwlCount();
 
 		return Response.json(
-			{ image: result.image, owls },
+			{ image: result.image, owls, budget: economy.budget },
 			{ headers: { "Cache-Control": "no-store" } },
 		);
 	} catch (error) {

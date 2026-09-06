@@ -105,17 +105,46 @@
 		</div>
 	</div>
 
-	<p data-owl-error class="hidden w-full text-center text-sm text-red-500"></p>
+	<p
+		data-owl-error
+		role="alert"
+		class="font-comic mt-3 hidden w-full items-center justify-center gap-2 text-center text-sm text-red-600"
+	>
+		<svg
+			data-owl-error-icon
+			class="hidden h-4 w-4 shrink-0"
+			viewBox="0 0 24 24"
+			fill="currentColor"
+			aria-hidden="true"
+		>
+			<path d="M12 3 1 21h22L12 3zm1 14h-2v2h2v-2zm0-7h-2v5h2V10z"></path>
+		</svg>
+		<span data-owl-error-message></span>
+		<a
+			data-owl-error-cta
+			href="https://buymeacoffee.com/luke.zip"
+			target="_blank"
+			rel="noreferrer"
+			class="hidden font-bold text-red-700 underline decoration-red-700 underline-offset-2"
+		>
+			Contribute owl funds
+		</a>
+	</p>
 </div>
 
 <script>
+	import {
+		canGenerateOwl,
+		DEFAULT_OWL_BUDGET_USD,
+		owlBudgetConsumed,
+		owlBudgetRemaining,
+	} from "../../api/owlBudget";
 	import { DEFAULT_OWL_CIRCLES } from "../../api/owlCircles";
 	import { pencilfyOwl, type OwlCircle } from "@/utils/pencilfyOwl";
 
 	type Circle = OwlCircle;
 
 	const MAX_CIRCLES = 2;
-	const OWL_BUDGET_USD = 50;
 	const SKETCH_BLUR_PX = 12;
 	const UI_IDLE_FADE_OUT_MS = 5000;
 	const UI_IDLE_RESET_MS = 300;
@@ -320,6 +349,9 @@
 			"[data-owl-cheat-control]",
 		);
 		const errorEl = root.querySelector<HTMLElement>("[data-owl-error]")!;
+		const errorIcon = root.querySelector("[data-owl-error-icon]")!;
+		const errorMessageEl = root.querySelector<HTMLElement>("[data-owl-error-message]")!;
+		const errorCta = root.querySelector<HTMLElement>("[data-owl-error-cta]")!;
 		const statsPanel = root.querySelector<HTMLElement>("[data-owl-stats]")!;
 		const statBoxes = Array.from(statsPanel.children) as HTMLElement[];
 		const statValues = statBoxes.slice(0, 3).map((box) =>
@@ -336,6 +368,8 @@
 		let cheatProceduralDone = false;
 		let generationId = 0;
 		let uiTimeouts: ReturnType<typeof setTimeout>[] = [];
+		let budgetDepleted = false;
+		let budgetUsd = DEFAULT_OWL_BUDGET_USD;
 
 		const pencilCanvas = document.createElement("canvas");
 		pencilCanvas.width = canvas.width;
@@ -505,6 +539,7 @@
 			clearBtn.disabled = circles.length === 0 || (uiActive && !cheatProceduralDone);
 			const awaitingCheatAi = isCheatMode() && cheatProceduralDone;
 			compareBtn.disabled =
+				budgetDepleted ||
 				circles.length === 0 ||
 				loading ||
 				revealed ||
@@ -516,7 +551,7 @@
 			circles.length = 0;
 			resetOverlays();
 			resetUi();
-			setError("");
+			setError(budgetDepleted ? "Owl budget depleted." : "", { fundsCta: budgetDepleted });
 			render();
 			syncControls();
 		}
@@ -525,9 +560,12 @@
 			clearAll();
 		}
 
-		function setError(message: string) {
-			errorEl.textContent = message;
+		function setError(message: string, options?: { fundsCta?: boolean }) {
+			errorMessageEl.textContent = message;
 			errorEl.classList.toggle("hidden", !message);
+			errorEl.classList.toggle("flex", Boolean(message));
+			errorIcon.classList.toggle("hidden", !options?.fundsCta);
+			errorCta.classList.toggle("hidden", !options?.fundsCta);
 		}
 
 		function revealOwlStats() {
@@ -541,19 +579,39 @@
 			});
 		}
 
-		function updateOwlStats(owls: unknown) {
+		function applyBudget(value: unknown) {
+			const next = Number(value);
+			if (Number.isFinite(next) && next >= 0) budgetUsd = next;
+		}
+
+		function updateOwlStats(
+			owls: unknown,
+			options?: { warnIfDepleted?: boolean; budget?: unknown },
+		) {
+			if (options && "budget" in options) applyBudget(options.budget);
+
 			const count = Number(owls);
 			if (!Number.isFinite(count)) return;
 
 			const [countEl, consumedEl, remainingEl] = statValues;
 			if (!countEl || !consumedEl || !remainingEl) return;
 
-			const consumed = count * 0.06;
-			const remaining = Math.max(0, OWL_BUDGET_USD - consumed);
+			const consumed = owlBudgetConsumed(count);
+			const remaining = owlBudgetRemaining(count, budgetUsd);
+			budgetDepleted = !canGenerateOwl(count, budgetUsd);
 
 			countEl.textContent = String(count);
 			consumedEl.textContent = `$${consumed.toFixed(2)}`;
 			remainingEl.textContent = `$${remaining.toFixed(2)}`;
+
+			if (budgetDepleted) {
+				if (options?.warnIfDepleted) {
+					setError("Owl budget depleted.", { fundsCta: true });
+				}
+			} else if (options?.warnIfDepleted) {
+				setError("");
+			}
+			syncControls();
 		}
 
 		async function loadOwlCount() {
@@ -561,7 +619,7 @@
 				const response = await fetch("/api/drawOwl");
 				if (!response.ok) return;
 				const data = await response.json();
-				updateOwlStats(data.owls);
+				updateOwlStats(data.owls, { warnIfDepleted: true, budget: data.budget });
 			} catch {
 				// Stats stay at placeholders if the API isn't available yet
 			}
@@ -590,13 +648,16 @@
 			});
 
 			const data = await response.json().catch(() => ({}));
+			if (data.owls != null) updateOwlStats(data.owls, { budget: data.budget });
 			if (!response.ok) {
+				if (data.error === "budget" || response.status === 402) {
+					throw Object.assign(new Error("Owl budget depleted."), { fundsCta: true });
+				}
 				throw new Error(data.message ?? `HTTP ${response.status}`);
 			}
 			if (typeof data.image !== "string") {
 				throw new Error("No image returned.");
 			}
-			updateOwlStats(data.owls);
 			return normalizeAiImageWhitePoint(data.image);
 		}
 
@@ -688,7 +749,9 @@
 				} else {
 					resetUi();
 				}
-				setError(err instanceof Error ? err.message : "Request failed");
+				setError(err instanceof Error ? err.message : "Request failed", {
+					fundsCta: Boolean(err && typeof err === "object" && "fundsCta" in err),
+				});
 			} finally {
 				if (activeId === generationId) {
 					loading = false;
@@ -700,6 +763,10 @@
 		compareBtn.addEventListener("click", async () => {
 			if (circles.length === 0 || loading || revealed) return;
 			if (uiActive && !(isCheatMode() && cheatProceduralDone)) return;
+			if (budgetDepleted) {
+				setError("Owl budget depleted.", { fundsCta: true });
+				return;
+			}
 
 			if (isCheatMode() && cheatProceduralDone) {
 				const id = ++generationId;
