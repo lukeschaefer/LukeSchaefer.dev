@@ -545,9 +545,10 @@
 		}
 
 		function syncControls() {
-			const clearDisabled = circles.length === 0 || (uiActive && !cheatProceduralDone);
+			const showClear = circles.length > 0 && isCircleDrawingMode();
 			clearBtns.forEach((button) => {
-				button.disabled = clearDisabled;
+				button.disabled = !showClear;
+				button.style.visibility = showClear ? "" : "hidden";
 			});
 			const awaitingCheatAi = isCheatMode() && cheatProceduralDone;
 			compareBtn.disabled =
@@ -790,6 +791,7 @@
 				const id = ++generationId;
 				setError("");
 				beginCheatDrawing();
+				syncControls();
 
 				setPencilBlendMode(false);
 				fadeOverlay(pencilOverlay, buildCheatOverlayImage(), CHEAT_PENCIL_FADE_MS, {

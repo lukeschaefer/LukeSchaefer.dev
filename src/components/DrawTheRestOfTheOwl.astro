@@ -25,6 +25,24 @@
 				>
 					2. Draw the rest of the owl
 				</p>
+				<div
+					class="font-comic absolute inset-x-3 bottom-2 z-10 flex items-center gap-2 text-black sm:hidden"
+				>
+					<button
+						data-rest-owl-new
+						type="button"
+						class="min-w-0 flex-1 cursor-pointer appearance-none border border-transparent bg-transparent px-2 py-1 text-center text-[14px] shadow-none outline-none hover:border-black"
+					>
+						New circles
+					</button>
+					<button
+						data-rest-owl-clear
+						type="button"
+						class="shrink-0 cursor-pointer appearance-none border border-transparent bg-transparent px-2 py-1 text-[14px] shadow-none outline-none hover:border-black"
+					>
+						Clear
+					</button>
+				</div>
 			</div>
 
 			<div
@@ -71,7 +89,7 @@
 					</button>
 				</div>
 
-				<div class="flex items-center justify-end gap-2">
+				<div class="hidden items-center justify-end gap-2 sm:flex">
 					<button
 						data-rest-owl-clear
 						type="button"
@@ -398,10 +416,12 @@
 		const toolButtons = Array.from(
 			root.querySelectorAll<HTMLButtonElement>("[data-rest-owl-tool]"),
 		);
-		const clearButton = root.querySelector<HTMLButtonElement>(
-			"[data-rest-owl-clear]",
-		)!;
-		const newButton = root.querySelector<HTMLButtonElement>("[data-rest-owl-new]")!;
+		const clearButtons = Array.from(
+			root.querySelectorAll<HTMLButtonElement>("[data-rest-owl-clear]"),
+		);
+		const newButtons = Array.from(
+			root.querySelectorAll<HTMLButtonElement>("[data-rest-owl-new]"),
+		);
 
 		let activeTool: Tool = "small";
 		let activeStroke: Stroke | null = null;
@@ -489,8 +509,8 @@
 			});
 		});
 
-		clearButton.addEventListener("click", clearDrawing);
-		newButton.addEventListener("click", makeNewCircles);
+		clearButtons.forEach((button) => button.addEventListener("click", clearDrawing));
+		newButtons.forEach((button) => button.addEventListener("click", makeNewCircles));
 
 		makeNewCircles();
 	});
