@@ -92,9 +92,6 @@ function getOpenRouterKey(): string {
 	const fromProcess = process.env.OPENROUTER_API_KEY;
 	if (fromProcess) return fromProcess;
 
-	const fromMeta = import.meta.env?.OPENROUTER_API_KEY;
-	if (typeof fromMeta === "string" && fromMeta) return fromMeta;
-
 	const fromFiles = loadOpenRouterKeyFromFiles();
 	if (fromFiles) {
 		process.env.OPENROUTER_API_KEY = fromFiles;
