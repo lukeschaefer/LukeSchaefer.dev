@@ -27,9 +27,3 @@ export const OWL_MODEL: OwlModelConfig = {
 	},
 	settingsLabel: "1:1, 1K",
 };
-
-export const OWL_MODELS: OwlModelConfig[] = [OWL_MODEL];
-
-export function getOwlModel(modelId: string): OwlModelConfig | undefined {
-	return OWL_MODELS.find((m) => m.id === modelId);
-}

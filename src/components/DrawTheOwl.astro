@@ -1,7 +1,3 @@
----
-import { OWL_PROMPT } from "../../api/owlModels";
----
-
 <div
 	class="group not-prose my-8 mx-auto flex w-full max-w-xl flex-col items-center transition-[max-width] duration-700 ease-out data-[stats-open]:max-w-[46.75rem]"
 	data-owl
@@ -109,24 +105,14 @@ import { OWL_PROMPT } from "../../api/owlModels";
 		</div>
 	</div>
 
-	<label class="hidden">
-		<span>Prompt</span>
-		<textarea data-owl-prompt rows="6">{OWL_PROMPT}</textarea>
-	</label>
-
 	<p data-owl-error class="hidden w-full text-center text-sm text-red-500"></p>
 </div>
 
 <script>
+	import { DEFAULT_OWL_CIRCLES } from "../../api/owlCircles";
 	import { pencilfyOwl, type OwlCircle } from "@/utils/pencilfyOwl";
 
 	type Circle = OwlCircle;
-
-	type ModelMeta = { id: string; settings: string };
-
-	const LOCAL_MODELS: ModelMeta[] = [
-		{ id: "x-ai/grok-imagine-image-quality", settings: "1:1, 1K" },
-	];
 
 	const MAX_CIRCLES = 2;
 	const OWL_BUDGET_USD = 50;
@@ -145,11 +131,6 @@ import { OWL_PROMPT } from "../../api/owlModels";
 	const STEP2_CHEAT_LABEL = "2. Cheat with a procedurally generated owl...";
 	const STEP3_CHEAT_LABEL = "3. Draw the rest of the owl";
 	const CHEAT_PENCIL_FADE_MS = 1000;
-
-	const DEFAULT_CIRCLES: Circle[] = [
-		{ cx: 512, cy: 568, rx: 217, ry: 308 },
-		{ cx: 420, cy: 255, rx: 110, ry: 115 },
-	];
 
 	function createCirclePencilTexture() {
 		const texture = document.createElement("canvas");
@@ -176,6 +157,7 @@ import { OWL_PROMPT } from "../../api/owlModels";
 		el.style.transition = "none";
 		el.style.opacity = "0";
 		el.style.filter = "";
+		el.style.pointerEvents = "none";
 		el.removeAttribute("src");
 		void el.offsetWidth;
 		el.style.transition = "";
@@ -213,6 +195,7 @@ import { OWL_PROMPT } from "../../api/owlModels";
 				? `opacity ${durationMs}ms ease, filter ${durationMs}ms ease`
 				: `opacity ${durationMs}ms ease`;
 		el.style.opacity = "1";
+		el.style.pointerEvents = "auto";
 		if (blurFromPx != null) {
 			el.style.filter = "blur(0px)";
 		}
@@ -336,7 +319,6 @@ import { OWL_PROMPT } from "../../api/owlModels";
 		const externalCheatCheckbox = document.querySelector<HTMLInputElement>(
 			"[data-owl-cheat-control]",
 		);
-		const promptInput = root.querySelector<HTMLTextAreaElement>("[data-owl-prompt]")!;
 		const errorEl = root.querySelector<HTMLElement>("[data-owl-error]")!;
 		const statsPanel = root.querySelector<HTMLElement>("[data-owl-stats]")!;
 		const statBoxes = Array.from(statsPanel.children) as HTMLElement[];
@@ -345,17 +327,15 @@ import { OWL_PROMPT } from "../../api/owlModels";
 		);
 		let statsRevealed = false;
 
-		const circles: Circle[] = DEFAULT_CIRCLES.map((c) => ({ ...c }));
+		const circles: Circle[] = DEFAULT_OWL_CIRCLES.map((c) => ({ ...c }));
 		let start: { x: number; y: number } | null = null;
 		let preview: Circle | null = null;
 		let loading = false;
 		let revealed = false;
 		let uiActive = false;
 		let cheatProceduralDone = false;
-		let cachedGuideImage: string | null = null;
 		let generationId = 0;
 		let uiTimeouts: ReturnType<typeof setTimeout>[] = [];
-		let models: ModelMeta[] = LOCAL_MODELS;
 
 		const pencilCanvas = document.createElement("canvas");
 		pencilCanvas.width = canvas.width;
@@ -407,29 +387,15 @@ import { OWL_PROMPT } from "../../api/owlModels";
 			}
 		}
 
-		function buildGuideImages() {
+		function buildCheatOverlayImage() {
 			pencilfyOwl(pencilCanvas, circles, { background: null });
-			const overlayImage = pencilCanvas.toDataURL("image/png");
-
-			const guideCanvas = document.createElement("canvas");
-			guideCanvas.width = pencilCanvas.width;
-			guideCanvas.height = pencilCanvas.height;
-			const guideCtx = guideCanvas.getContext("2d")!;
-			guideCtx.fillStyle = "#ffffff";
-			guideCtx.fillRect(0, 0, guideCanvas.width, guideCanvas.height);
-			guideCtx.drawImage(pencilCanvas, 0, 0);
-
-			return {
-				overlayImage,
-				guideImage: guideCanvas.toDataURL("image/png"),
-			};
+			return pencilCanvas.toDataURL("image/png");
 		}
 
 		function resetOverlays() {
 			generationId += 1;
 			revealed = false;
 			cheatProceduralDone = false;
-			cachedGuideImage = null;
 			clearUiTimeouts();
 			setPencilBlendMode(true);
 			hideOverlay(pencilOverlay);
@@ -543,7 +509,6 @@ import { OWL_PROMPT } from "../../api/owlModels";
 				loading ||
 				revealed ||
 				(uiActive && !awaitingCheatAi);
-			promptInput.disabled = loading;
 			syncCursor();
 		}
 
@@ -591,28 +556,36 @@ import { OWL_PROMPT } from "../../api/owlModels";
 			remainingEl.textContent = `$${remaining.toFixed(2)}`;
 		}
 
-		async function loadModels() {
+		async function loadOwlCount() {
 			try {
 				const response = await fetch("/api/drawOwl");
 				if (!response.ok) return;
 				const data = await response.json();
-				if (Array.isArray(data.models) && data.models.length > 0) {
-					models = data.models;
-				}
 				updateOwlStats(data.owls);
 			} catch {
-				// Keep the bundled model list if the API isn't available yet
+				// Stats stay at placeholders if the API isn't available yet
 			}
 		}
 
-		async function requestAiImage(guideImage: string, model: ModelMeta): Promise<string> {
+		async function requestAiImage(): Promise<string> {
+			const circle1 = circles[0];
+			if (!circle1) throw new Error("Draw at least one circle first.");
+
 			const response = await fetch("/api/drawOwl", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					image: guideImage,
-					model: model.id,
-					prompt: promptInput.value.trim(),
+					circle1: { cx: circle1.cx, cy: circle1.cy, rx: circle1.rx, ry: circle1.ry },
+					...(circles[1]
+						? {
+								circle2: {
+									cx: circles[1].cx,
+									cy: circles[1].cy,
+									rx: circles[1].rx,
+									ry: circles[1].ry,
+								},
+							}
+						: {}),
 				}),
 			});
 
@@ -686,7 +659,7 @@ import { OWL_PROMPT } from "../../api/owlModels";
 			});
 		}
 
-		async function runAiGeneration(activeId: number, guideImage: string, model: ModelMeta) {
+		async function runAiGeneration(activeId: number) {
 			loading = true;
 			setError("");
 			if (isCheatMode() && cheatProceduralDone) {
@@ -697,7 +670,7 @@ import { OWL_PROMPT } from "../../api/owlModels";
 			syncControls();
 
 			try {
-				const image = await requestAiImage(guideImage, model);
+				const image = await requestAiImage();
 				if (activeId !== generationId) return;
 				fadeOverlay(aiOverlay, image, 1000, { blurFromPx: SKETCH_BLUR_PX });
 				revealOwlStats();
@@ -728,19 +701,9 @@ import { OWL_PROMPT } from "../../api/owlModels";
 			if (circles.length === 0 || loading || revealed) return;
 			if (uiActive && !(isCheatMode() && cheatProceduralDone)) return;
 
-			if (models.length === 0) {
-				await loadModels();
-			}
-			const model = models[0];
-			if (!model) {
-				setError("Could not load model list.");
-				return;
-			}
-
 			if (isCheatMode() && cheatProceduralDone) {
-				if (!cachedGuideImage) return;
 				const id = ++generationId;
-				await runAiGeneration(id, cachedGuideImage, model);
+				await runAiGeneration(id);
 				return;
 			}
 
@@ -749,10 +712,8 @@ import { OWL_PROMPT } from "../../api/owlModels";
 				setError("");
 				beginCheatDrawing();
 
-				const { overlayImage, guideImage } = buildGuideImages();
-				cachedGuideImage = guideImage;
 				setPencilBlendMode(false);
-				fadeOverlay(pencilOverlay, overlayImage, CHEAT_PENCIL_FADE_MS, {
+				fadeOverlay(pencilOverlay, buildCheatOverlayImage(), CHEAT_PENCIL_FADE_MS, {
 					blurFromPx: SKETCH_BLUR_PX,
 				});
 
@@ -770,14 +731,13 @@ import { OWL_PROMPT } from "../../api/owlModels";
 			beginDrawing();
 			syncControls();
 
-			const { overlayImage, guideImage } = buildGuideImages();
 			setPencilBlendMode(true);
-			fadeOverlay(pencilOverlay, overlayImage, 5000);
+			fadeOverlay(pencilOverlay, buildCheatOverlayImage(), 5000);
 
-			await runAiGeneration(id, guideImage, model);
+			await runAiGeneration(id);
 		});
 
-		void loadModels();
+		void loadOwlCount();
 		updateIdleLabels();
 		render();
 		syncControls();

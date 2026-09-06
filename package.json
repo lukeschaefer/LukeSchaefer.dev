@@ -18,6 +18,7 @@
 		"@astrojs/mdx": "4.0.5",
 		"@astrojs/rss": "4.0.11",
 		"@astrojs/sitemap": "3.2.1",
+		"@napi-rs/canvas": "^1.0.8",
 		"@tailwindcss/vite": "4.0.0-beta.8",
 		"astro": "5.1.5",
 		"astro-expressive-code": "^0.39.0",
@@ -63,6 +64,7 @@
 	"pnpm": {
 		"onlyBuiltDependencies": [
 			"@biomejs/biome",
+			"@napi-rs/canvas",
 			"esbuild",
 			"sharp"
 		]

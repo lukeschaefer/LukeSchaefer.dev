@@ -1,85 +1,90 @@
+import fs from "node:fs";
+import path from "node:path";
+import { CircleRequestError, circlesMatchDefault, parseRequestCircles } from "./owlCircles";
+import { renderOwlGuideDataUrl } from "./owlGuide";
+import { OWL_MODEL, OWL_PROMPT } from "./owlModels";
 import { callOpenRouterImageEdit } from "./openrouterImage";
 import { getOwlCount, incrementOwlCount } from "./owlCount";
-import { getOwlModel, OWL_MODELS, OWL_PROMPT } from "./owlModels";
 
-function jsonError(message: string, status: number, extra?: Record<string, unknown>) {
+const PRESET_OWL_FILES = ["owl1.png", "owl2.png", "owl3.png"] as const;
+const PRESET_DELAY_MS = 2000;
+
+function jsonError(message: string, status: number) {
 	return Response.json(
-		{ error: "Failed to draw the owl", message, ...extra },
+		{ error: "Failed to draw the owl", message },
 		{ status, headers: { "Cache-Control": "no-store" } },
 	);
 }
 
+function sleep(ms: number) {
+	return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+function readPresetOwlDataUrl(): string {
+	const file = PRESET_OWL_FILES[Math.floor(Math.random() * PRESET_OWL_FILES.length)]!;
+	const bytes = fs.readFileSync(path.join(process.cwd(), "public", file));
+	return `data:image/png;base64,${bytes.toString("base64")}`;
+}
+
 export async function GET(): Promise<Response> {
 	return Response.json(
-		{
-			prompt: OWL_PROMPT,
-			owls: await getOwlCount(),
-			models: OWL_MODELS.map((m) => ({
-				id: m.id,
-				settings: m.settingsLabel,
-			})),
-		},
+		{ owls: await getOwlCount() },
 		{ headers: { "Cache-Control": "no-store" } },
 	);
 }
 
 export async function POST(request: Request): Promise<Response> {
-	let body: { image?: unknown; model?: unknown; prompt?: unknown };
+	let body: unknown;
 	try {
 		body = await request.json();
 	} catch {
 		return jsonError("Invalid JSON body.", 400);
 	}
 
-	const { image, model, prompt } = body;
-	if (typeof image !== "string" || !image.startsWith("data:image/")) {
-		return jsonError("Expected an `image` data URL in the request body.", 400);
-	}
-	if (typeof model !== "string") {
-		return jsonError("Expected a `model` string in the request body.", 400);
-	}
-
-	const resolvedPrompt =
-		typeof prompt === "string" && prompt.trim() ? prompt.trim() : OWL_PROMPT;
-
-	const config = getOwlModel(model);
-	if (!config) {
-		return jsonError(`Unknown model: ${model}`, 400, { model });
+	let circles;
+	try {
+		circles = parseRequestCircles(body);
+	} catch (error) {
+		if (error instanceof CircleRequestError) {
+			return jsonError(error.message, 400);
+		}
+		throw error;
 	}
 
 	try {
+		if (circlesMatchDefault(circles)) {
+			await sleep(PRESET_DELAY_MS);
+			const image = readPresetOwlDataUrl();
+			const owls = await incrementOwlCount();
+			return Response.json(
+				{ image, owls },
+				{ headers: { "Cache-Control": "no-store" } },
+			);
+		}
+
+		const image = await renderOwlGuideDataUrl(circles);
 		const result = await callOpenRouterImageEdit({
-			logLabel: `drawOwl:${model}`,
-			model: config.id,
-			prompt: resolvedPrompt,
+			logLabel: "drawOwl",
+			model: OWL_MODEL.id,
+			prompt: OWL_PROMPT,
 			image,
-			modalities: config.modalities,
-			imageConfig: config.imageConfig,
-			chatParams: config.chatParams,
+			modalities: OWL_MODEL.modalities,
+			imageConfig: OWL_MODEL.imageConfig,
+			...(OWL_MODEL.chatParams ? { chatParams: OWL_MODEL.chatParams } : {}),
 		});
 
 		const owls = await incrementOwlCount();
 
 		return Response.json(
-			{
-				model: config.id,
-				image: result.image,
-				latencyMs: result.latencyMs,
-				cost: result.cost,
-				settings: config.settingsLabel,
-				usage: result.usage,
-				owls,
-			},
+			{ image: result.image, owls },
 			{ headers: { "Cache-Control": "no-store" } },
 		);
 	} catch (error) {
 		if (error instanceof Error && error.name === "TimeoutError") {
-			return jsonError("Image generation timed out.", 504, { model });
+			return jsonError("Image generation timed out.", 504);
 		}
 
-		console.error(`[drawOwl:${model}] unexpected error:`, error);
-		return jsonError(error instanceof Error ? error.message : "Unknown error", 500, {
-			model,
-		});
+		console.error("[drawOwl] unexpected error:", error);
+		return jsonError(error instanceof Error ? error.message : "Unknown error", 500);
 	}
 }

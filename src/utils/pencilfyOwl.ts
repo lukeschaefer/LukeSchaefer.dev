@@ -4,6 +4,12 @@ import type { RoughCanvas } from "roughjs/bin/canvas";
 
 export type OwlCircle = { cx: number; cy: number; rx: number; ry: number };
 
+export type PencilCanvas = {
+	width: number;
+	height: number;
+	getContext(contextId: "2d"): CanvasRenderingContext2D | null;
+};
+
 /** −1 = facing left, 0 = straight on, +1 = facing right. */
 export type Facing = number;
 
@@ -690,7 +696,7 @@ function projectFaceDir(owl: OwlModel, vx: number, vy: number, vz: number) {
 type RenderContext = {
 	rc: RoughCanvas;
 	ctx: CanvasRenderingContext2D;
-	canvas: HTMLCanvasElement;
+	canvas: PencilCanvas;
 	theme: Theme;
 	owl: OwlModel;
 	/** Shared scratch space for inter-part dependencies (keyed by part). */
@@ -1424,7 +1430,7 @@ const PARTS: Part[] = [
  * feathers toward profile — hiding the far side entirely at ±1.
  */
 export function pencilfyOwl(
-	canvas: HTMLCanvasElement,
+	canvas: PencilCanvas,
 	circles: OwlCircle[],
 	options?: { background?: string | null },
 ): void {
@@ -1439,7 +1445,7 @@ export function pencilfyOwl(
 	}
 	if (circles.length === 0) return;
 
-	const rc = rough.canvas(canvas);
+	const rc = rough.canvas(canvas as HTMLCanvasElement);
 	const theme = DEFAULT_THEME;
 	const parts = [...PARTS].sort((a, b) => a.z - b.z);
 

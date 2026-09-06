@@ -5,7 +5,8 @@
 			"maxDuration": 10
 		},
 		"api/drawOwl.ts": {
-			"maxDuration": 120
+			"maxDuration": 120,
+			"includeFiles": "public/owl*.png"
 		}
 	}
 }

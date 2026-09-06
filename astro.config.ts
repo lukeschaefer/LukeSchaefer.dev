@@ -93,7 +93,10 @@ export default defineConfig({
 	prefetch: true,
 	vite: {
 		optimizeDeps: {
-			exclude: ["@resvg/resvg-js"],
+			exclude: ["@resvg/resvg-js", "@napi-rs/canvas"],
+		},
+		ssr: {
+			external: ["@napi-rs/canvas"],
 		},
 		plugins: [tailwind(), rawFonts([".ttf", ".woff"]), drawOwlDevApi()],
 	},
