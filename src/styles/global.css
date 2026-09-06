@@ -16,6 +16,7 @@
 	--color-quote: oklch(55.27% 0.195 19.06);
 
 	--font-mono: 'iA Writer Mono';
+	--font-comic: 'Comic Sans MS', 'Comic Sans', 'Comic Neue', var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
 }
 
 @font-face {
