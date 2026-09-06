@@ -40,6 +40,13 @@
 				>
 					2. Draw the rest of the owl
 				</p>
+				<button
+					data-owl-clear
+					type="button"
+					class="font-comic absolute right-3 top-3 z-10 cursor-pointer appearance-none border border-transparent bg-transparent px-1.5 py-0.5 text-[16px] text-black shadow-none outline-none hover:border-black disabled:cursor-not-allowed disabled:opacity-40 sm:hidden"
+				>
+					Clear
+				</button>
 				<div class="absolute inset-x-3 bottom-2 z-10 sm:inset-x-4 sm:bottom-3">
 					<div
 						data-owl-bottom-idle
@@ -48,14 +55,14 @@
 						<button
 							data-owl-compare
 							type="button"
-							class="font-comic min-w-0 flex-1 cursor-pointer appearance-none border-0 bg-transparent p-0 text-center text-[16px] text-black shadow-none outline-none disabled:cursor-not-allowed disabled:opacity-40 sm:text-[18px]"
+							class="font-comic min-w-0 w-full flex-1 cursor-pointer appearance-none border-0 bg-transparent p-0 text-center text-[16px] text-black shadow-none outline-none disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:text-[18px]"
 						>
 							2. Draw the rest of the owl
 						</button>
 						<button
 							data-owl-clear
 							type="button"
-							class="font-comic shrink-0 cursor-pointer appearance-none border border-transparent bg-transparent px-1.5 py-0.5 text-[16px] text-black shadow-none outline-none hover:border-black disabled:cursor-not-allowed disabled:opacity-40 sm:px-2 sm:text-[18px]"
+							class="font-comic hidden shrink-0 cursor-pointer appearance-none border border-transparent bg-transparent px-1.5 py-0.5 text-[16px] text-black shadow-none outline-none hover:border-black disabled:cursor-not-allowed disabled:opacity-40 sm:block sm:px-2 sm:text-[18px]"
 						>
 							Clear
 						</button>
@@ -341,7 +348,9 @@
 		const step1Label = root.querySelector<HTMLElement>("[data-owl-step1]")!;
 		const step2Label = root.querySelector<HTMLElement>("[data-owl-step2]")!;
 		const bottomIdle = root.querySelector<HTMLElement>("[data-owl-bottom-idle]")!;
-		const clearBtn = root.querySelector<HTMLButtonElement>("[data-owl-clear]")!;
+		const clearBtns = Array.from(
+			root.querySelectorAll<HTMLButtonElement>("[data-owl-clear]"),
+		);
 		const restartBtn = root.querySelector<HTMLButtonElement>("[data-owl-restart]")!;
 		const compareBtn = root.querySelector<HTMLButtonElement>("[data-owl-compare]")!;
 		const cheatCheckbox = root.querySelector<HTMLInputElement>("[data-owl-cheat]")!;
@@ -536,7 +545,10 @@
 		}
 
 		function syncControls() {
-			clearBtn.disabled = circles.length === 0 || (uiActive && !cheatProceduralDone);
+			const clearDisabled = circles.length === 0 || (uiActive && !cheatProceduralDone);
+			clearBtns.forEach((button) => {
+				button.disabled = clearDisabled;
+			});
 			const awaitingCheatAi = isCheatMode() && cheatProceduralDone;
 			compareBtn.disabled =
 				budgetDepleted ||
@@ -703,7 +715,7 @@
 		canvas.addEventListener("pointerup", finishStroke);
 		canvas.addEventListener("pointercancel", finishStroke);
 
-		clearBtn.addEventListener("click", clearAll);
+		clearBtns.forEach((button) => button.addEventListener("click", clearAll));
 		restartBtn.addEventListener("click", restart);
 
 		cheatCheckbox.addEventListener("change", () => {
