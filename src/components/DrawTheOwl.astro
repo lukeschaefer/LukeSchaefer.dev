@@ -1,7 +1,5 @@
 ---
 import { OWL_PROMPT } from "../../api/owlModels";
-
-const MAX_CIRCLES = 2;
 ---
 
 <div
@@ -132,7 +130,6 @@ const MAX_CIRCLES = 2;
 
 	const MAX_CIRCLES = 2;
 	const OWL_BUDGET_USD = 50;
-	const PENCIL = "#374151";
 	const SKETCH_BLUR_PX = 12;
 	const UI_IDLE_FADE_OUT_MS = 5000;
 	const UI_IDLE_RESET_MS = 300;
@@ -153,6 +150,27 @@ const MAX_CIRCLES = 2;
 		{ cx: 512, cy: 568, rx: 217, ry: 308 },
 		{ cx: 420, cy: 255, rx: 110, ry: 115 },
 	];
+
+	function createCirclePencilTexture() {
+		const texture = document.createElement("canvas");
+		texture.width = 96;
+		texture.height = 96;
+		const textureCtx = texture.getContext("2d")!;
+		const image = textureCtx.createImageData(texture.width, texture.height);
+
+		for (let i = 0; i < image.data.length; i += 4) {
+			const grain = Math.random();
+			const graphite = 28 + Math.floor(Math.random() * 30);
+
+			image.data[i] = graphite;
+			image.data[i + 1] = graphite + Math.floor(Math.random() * 6);
+			image.data[i + 2] = graphite + 10 + Math.floor(Math.random() * 8);
+			image.data[i + 3] = grain > 0.86 ? 0 : 105 + Math.floor(grain * 150);
+		}
+
+		textureCtx.putImageData(image, 0, 0);
+		return texture;
+	}
 
 	function hideOverlay(el: HTMLImageElement) {
 		el.style.transition = "none";
@@ -303,6 +321,8 @@ const MAX_CIRCLES = 2;
 		const canvas = root.querySelector<HTMLCanvasElement>("[data-owl-canvas]");
 		const ctx = canvas?.getContext("2d");
 		if (!canvas || !ctx) return;
+		const pencilTexture = createCirclePencilTexture();
+		const pencilPattern = ctx.createPattern(pencilTexture, "repeat");
 
 		const pencilOverlay = root.querySelector<HTMLImageElement>("[data-owl-pencil-overlay]")!;
 		const aiOverlay = root.querySelector<HTMLImageElement>("[data-owl-ai-overlay]")!;
@@ -313,6 +333,9 @@ const MAX_CIRCLES = 2;
 		const restartBtn = root.querySelector<HTMLButtonElement>("[data-owl-restart]")!;
 		const compareBtn = root.querySelector<HTMLButtonElement>("[data-owl-compare]")!;
 		const cheatCheckbox = root.querySelector<HTMLInputElement>("[data-owl-cheat]")!;
+		const externalCheatCheckbox = document.querySelector<HTMLInputElement>(
+			"[data-owl-cheat-control]",
+		);
 		const promptInput = root.querySelector<HTMLTextAreaElement>("[data-owl-prompt]")!;
 		const errorEl = root.querySelector<HTMLElement>("[data-owl-error]")!;
 		const statsPanel = root.querySelector<HTMLElement>("[data-owl-stats]")!;
@@ -340,11 +363,13 @@ const MAX_CIRCLES = 2;
 
 		function strokeEllipse(c: Circle) {
 			ctx!.save();
-			ctx!.strokeStyle = PENCIL;
-			ctx!.lineWidth = 10;
+			ctx!.globalCompositeOperation = "multiply";
+			ctx!.globalAlpha = 0.78;
+			ctx!.strokeStyle = pencilPattern ?? "#374151";
+			ctx!.lineWidth = 14;
 			ctx!.lineCap = "round";
 			for (let pass = 0; pass < 2; pass++) {
-				const jitter = pass === 0 ? 0 : 3;
+				const jitter = pass === 0 ? 0 : 2;
 				ctx!.beginPath();
 				ctx!.ellipse(c.cx + jitter, c.cy - jitter, c.rx, c.ry, 0, 0, Math.PI * 2);
 				ctx!.stroke();
@@ -648,10 +673,18 @@ const MAX_CIRCLES = 2;
 		restartBtn.addEventListener("click", restart);
 
 		cheatCheckbox.addEventListener("change", () => {
-			if (!uiActive && !loading && !revealed && !cheatProceduralDone) {
-				updateIdleLabels();
-			}
+			if (loading) return;
+			if (uiActive || revealed || cheatProceduralDone) restart();
+			else updateIdleLabels();
 		});
+
+		if (externalCheatCheckbox) {
+			cheatCheckbox.checked = externalCheatCheckbox.checked;
+			externalCheatCheckbox.addEventListener("change", () => {
+				cheatCheckbox.checked = externalCheatCheckbox.checked;
+				cheatCheckbox.dispatchEvent(new Event("change"));
+			});
+		}
 
 		async function runAiGeneration(activeId: number, guideImage: string, model: ModelMeta) {
 			loading = true;

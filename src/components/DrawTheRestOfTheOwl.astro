@@ -1,0 +1,497 @@
+<div
+	class="not-prose mx-auto my-8 flex w-full max-w-xl flex-col items-center"
+	data-rest-owl
+>
+	<figure class="m-0 w-full">
+		<div
+			class="overflow-hidden rounded-lg border border-zinc-300 bg-white shadow-sm dark:border-zinc-600"
+		>
+			<div class="relative isolate aspect-square w-full bg-white">
+				<canvas
+					data-rest-owl-guide
+					width="1024"
+					height="1024"
+					class="pointer-events-none absolute inset-0 h-full w-full"
+				></canvas>
+				<canvas
+					data-rest-owl-canvas
+					width="1024"
+					height="1024"
+					aria-label="Draw the rest of the owl"
+					class="absolute inset-0 h-full w-full cursor-crosshair touch-none"
+				></canvas>
+				<p
+					class="pointer-events-none absolute left-4 top-4 z-10 m-0 text-[16px] font-['Comic_Sans_MS','Comic_Sans',cursive] text-black sm:left-6 sm:top-5 sm:text-[20px]"
+				>
+					2. Draw the rest of the owl
+				</p>
+			</div>
+
+			<div
+				class="flex flex-col gap-2 border-t border-zinc-300 bg-white p-2 font-['Comic_Sans_MS','Comic_Sans',cursive] text-black sm:flex-row sm:items-center sm:justify-between dark:border-zinc-600"
+			>
+				<div class="grid grid-cols-4 gap-1" aria-label="Drawing tool">
+					<button
+						data-rest-owl-tool="small"
+						type="button"
+						aria-pressed="true"
+						aria-label="Small pencil"
+						title="Small pencil"
+						class="flex min-h-8 min-w-10 cursor-pointer items-center justify-center rounded border border-transparent px-2 py-1 hover:border-black aria-pressed:border-black aria-pressed:bg-zinc-900 aria-pressed:text-white"
+					>
+						<span class="h-2 w-2 rounded-full bg-current"></span>
+					</button>
+					<button
+						data-rest-owl-tool="medium"
+						type="button"
+						aria-pressed="false"
+						aria-label="Medium pencil"
+						title="Medium pencil"
+						class="flex min-h-8 min-w-10 cursor-pointer items-center justify-center rounded border border-transparent px-2 py-1 hover:border-black aria-pressed:border-black aria-pressed:bg-zinc-900 aria-pressed:text-white"
+					>
+						<span class="h-3.5 w-3.5 rounded-full bg-current"></span>
+					</button>
+					<button
+						data-rest-owl-tool="large"
+						type="button"
+						aria-pressed="false"
+						aria-label="Large shading pencil"
+						title="Large shading pencil"
+						class="flex min-h-8 min-w-10 cursor-pointer items-center justify-center rounded border border-transparent px-2 py-1 hover:border-black aria-pressed:border-black aria-pressed:bg-zinc-900 aria-pressed:text-white"
+					>
+						<span class="h-5 w-5 rounded-full bg-current"></span>
+					</button>
+					<button
+						data-rest-owl-tool="eraser"
+						type="button"
+						aria-pressed="false"
+						class="cursor-pointer rounded border border-transparent px-2 py-1 text-[14px] hover:border-black aria-pressed:border-black aria-pressed:bg-zinc-900 aria-pressed:text-white sm:text-[16px]"
+					>
+						Eraser
+					</button>
+				</div>
+
+				<div class="flex items-center justify-end gap-2">
+					<button
+						data-rest-owl-clear
+						type="button"
+						class="cursor-pointer appearance-none border border-transparent bg-transparent px-2 py-1 text-[14px] shadow-none outline-none hover:border-black sm:text-[16px]"
+					>
+						Clear
+					</button>
+					<button
+						data-rest-owl-new
+						type="button"
+						class="cursor-pointer appearance-none border border-transparent bg-transparent px-2 py-1 text-[14px] shadow-none outline-none hover:border-black sm:text-[16px]"
+					>
+						New circles
+					</button>
+				</div>
+			</div>
+		</div>
+	</figure>
+</div>
+
+<script>
+	import { getStroke } from "perfect-freehand";
+
+	type Point = [number, number, number];
+	type Tool = "small" | "medium" | "large" | "eraser";
+	type Stroke = {
+		tool: Tool;
+		points: Point[];
+	};
+	type Circle = {
+		cx: number;
+		cy: number;
+		rx: number;
+		ry: number;
+	};
+
+	const TOOL_SETTINGS = {
+		small: {
+			size: 7,
+			opacity: 0.95,
+			softness: 0,
+			thinning: 0.62,
+			smoothing: 0.58,
+			streamline: 0.3,
+		},
+		medium: {
+			size: 26,
+			opacity: 0.14,
+			softness: 2,
+			thinning: 0.5,
+			smoothing: 0.58,
+			streamline: 0.32,
+		},
+		large: {
+			size: 58,
+			opacity: 0.08,
+			softness: 4,
+			thinning: 0.35,
+			smoothing: 0.6,
+			streamline: 0.36,
+		},
+		eraser: {
+			size: 64,
+			opacity: 1,
+			softness: 0,
+			thinning: 0,
+			smoothing: 0.7,
+			streamline: 0.5,
+		},
+	} as const;
+
+	function createPencilTexture() {
+		const texture = document.createElement("canvas");
+		texture.width = 96;
+		texture.height = 96;
+		const textureCtx = texture.getContext("2d")!;
+		const image = textureCtx.createImageData(texture.width, texture.height);
+
+		for (let i = 0; i < image.data.length; i += 4) {
+			const grain = Math.random();
+			const graphite = 18 + Math.floor(Math.random() * 30);
+			const paperGap = grain > 0.84;
+
+			image.data[i] = graphite;
+			image.data[i + 1] = graphite;
+			image.data[i + 2] = graphite + Math.floor(Math.random() * 5);
+			image.data[i + 3] = paperGap ? 0 : 110 + Math.floor(grain * 145);
+		}
+
+		textureCtx.putImageData(image, 0, 0);
+		return texture;
+	}
+
+	function randomBetween(min: number, max: number) {
+		return min + Math.random() * (max - min);
+	}
+
+	function createCircle(): Circle {
+		const rx = randomBetween(120, 280);
+		const ry = randomBetween(130, 320);
+		const padding = 56;
+
+		return {
+			cx: randomBetween(rx + padding, 1024 - rx - padding),
+			cy: randomBetween(ry + padding, 1024 - ry - padding),
+			rx,
+			ry,
+		};
+	}
+
+	function createIntersectingCircle(anchor: Circle): Circle {
+		const padding = 56;
+
+		for (let attempt = 0; attempt < 100; attempt++) {
+			const circle = createCircle();
+			const angle = randomBetween(0, Math.PI * 2);
+			const maximumDistance =
+				Math.min(anchor.rx, anchor.ry) + Math.min(circle.rx, circle.ry);
+			const distance = randomBetween(maximumDistance * 0.72, maximumDistance * 0.98);
+
+			circle.cx = anchor.cx + Math.cos(angle) * distance;
+			circle.cy = anchor.cy + Math.sin(angle) * distance;
+
+			const fitsHorizontally =
+				circle.cx - circle.rx >= padding &&
+				circle.cx + circle.rx <= 1024 - padding;
+			const fitsVertically =
+				circle.cy - circle.ry >= padding &&
+				circle.cy + circle.ry <= 1024 - padding;
+
+			if (fitsHorizontally && fitsVertically) return circle;
+		}
+
+		return {
+			...createCircle(),
+			cx: anchor.cx,
+			cy: anchor.cy,
+		};
+	}
+
+	function combinedAreaFraction(circles: Circle[]) {
+		const resolution = 64;
+		let coveredCells = 0;
+
+		for (let row = 0; row < resolution; row++) {
+			for (let column = 0; column < resolution; column++) {
+				const x = ((column + 0.5) / resolution) * 1024;
+				const y = ((row + 0.5) / resolution) * 1024;
+				const isCovered = circles.some((circle) => {
+					const normalizedX = (x - circle.cx) / circle.rx;
+					const normalizedY = (y - circle.cy) / circle.ry;
+					return normalizedX ** 2 + normalizedY ** 2 <= 1;
+				});
+
+				if (isCovered) coveredCells++;
+			}
+		}
+
+		return coveredCells / resolution ** 2;
+	}
+
+	function createCirclePair() {
+		for (let attempt = 0; attempt < 200; attempt++) {
+			const firstCircle = createCircle();
+			const pair = [firstCircle, createIntersectingCircle(firstCircle)];
+			if (combinedAreaFraction(pair) > 0.26) return pair;
+		}
+
+		return [
+			{ cx: 470, cy: 550, rx: 280, ry: 320 },
+			{ cx: 620, cy: 310, rx: 170, ry: 180 },
+		];
+	}
+
+	function drawCircle(ctx: CanvasRenderingContext2D, circle: Circle) {
+		ctx.save();
+		ctx.strokeStyle = "rgba(0, 0, 0, 0.1)";
+		ctx.lineWidth = 8;
+		ctx.lineCap = "round";
+		ctx.beginPath();
+		ctx.ellipse(circle.cx, circle.cy, circle.rx, circle.ry, 0, 0, Math.PI * 2);
+		ctx.stroke();
+
+		ctx.restore();
+	}
+
+	function traceOutline(ctx: CanvasRenderingContext2D, outline: number[][]) {
+		const first = outline[0];
+		if (!first) return false;
+
+		ctx.beginPath();
+		ctx.moveTo(first[0]!, first[1]!);
+
+		for (let i = 1; i < outline.length - 1; i++) {
+			const point = outline[i]!;
+			const next = outline[i + 1]!;
+			ctx.quadraticCurveTo(
+				point[0]!,
+				point[1]!,
+				(point[0]! + next[0]!) / 2,
+				(point[1]! + next[1]!) / 2,
+			);
+		}
+
+		ctx.closePath();
+		return true;
+	}
+
+	function splitStrokeAtReversals(points: Point[]) {
+		if (points.length < 4) return [points];
+
+		const passes: Point[][] = [];
+		let currentPass: Point[] = [points[0]!];
+		let previousDirection: [number, number] | null = null;
+
+		for (let i = 1; i < points.length; i++) {
+			const previous = points[i - 1]!;
+			const point = points[i]!;
+			const dx = point[0] - previous[0];
+			const dy = point[1] - previous[1];
+			const distance = Math.hypot(dx, dy);
+
+			if (distance < 1) {
+				currentPass.push(point);
+				continue;
+			}
+
+			const direction: [number, number] = [dx / distance, dy / distance];
+			const isReversal =
+				previousDirection !== null &&
+				previousDirection[0] * direction[0] +
+					previousDirection[1] * direction[1] <
+					-0.35;
+
+			if (isReversal && currentPass.length >= 3) {
+				passes.push(currentPass);
+				currentPass = [previous, point];
+			} else {
+				currentPass.push(point);
+			}
+
+			previousDirection = direction;
+		}
+
+		passes.push(currentPass);
+		return passes;
+	}
+
+	function fillStroke(
+		ctx: CanvasRenderingContext2D,
+		stroke: Stroke,
+		texture: HTMLCanvasElement,
+		smudgeCanvas: HTMLCanvasElement,
+	) {
+		const settings = TOOL_SETTINGS[stroke.tool];
+		const passes =
+			stroke.tool === "eraser"
+				? [stroke.points]
+				: splitStrokeAtReversals(stroke.points);
+		const smudgeCtx = smudgeCanvas.getContext("2d")!;
+
+		if (stroke.tool === "large") {
+			smudgeCtx.clearRect(0, 0, smudgeCanvas.width, smudgeCanvas.height);
+			smudgeCtx.drawImage(ctx.canvas, 0, 0);
+		}
+
+		ctx.save();
+		ctx.globalCompositeOperation =
+			stroke.tool === "eraser" ? "destination-out" : "multiply";
+		ctx.globalAlpha = settings.opacity;
+		ctx.filter = settings.softness > 0 ? `blur(${settings.softness}px)` : "none";
+		ctx.fillStyle =
+			stroke.tool === "eraser"
+				? "#000000"
+				: (ctx.createPattern(texture, "repeat") ?? "#18181b");
+
+		for (const pass of passes) {
+			const outline = getStroke(pass, {
+				size: settings.size,
+				thinning: settings.thinning,
+				smoothing: settings.smoothing,
+				streamline: settings.streamline,
+				simulatePressure: true,
+				last: true,
+			});
+
+			if (stroke.tool === "large") {
+				ctx.save();
+				if (traceOutline(ctx, outline)) {
+					ctx.clip();
+					ctx.globalCompositeOperation = "source-over";
+					ctx.globalAlpha = 0.38;
+					ctx.filter = "blur(10px)";
+					ctx.drawImage(smudgeCanvas, 0, 0);
+				}
+				ctx.restore();
+			}
+
+			if (traceOutline(ctx, outline)) ctx.fill();
+		}
+
+		ctx.restore();
+	}
+
+	document.querySelectorAll<HTMLElement>("[data-rest-owl]").forEach((root) => {
+		const guideCanvas = root.querySelector<HTMLCanvasElement>(
+			"[data-rest-owl-guide]",
+		);
+		const canvas = root.querySelector<HTMLCanvasElement>("[data-rest-owl-canvas]");
+		const guideCtx = guideCanvas?.getContext("2d");
+		const ctx = canvas?.getContext("2d");
+		if (!guideCanvas || !canvas || !guideCtx || !ctx) return;
+
+		const committedCanvas = document.createElement("canvas");
+		committedCanvas.width = canvas.width;
+		committedCanvas.height = canvas.height;
+		const committedCtx = committedCanvas.getContext("2d");
+		if (!committedCtx) return;
+		const pencilTexture = createPencilTexture();
+		const smudgeCanvas = document.createElement("canvas");
+		smudgeCanvas.width = canvas.width;
+		smudgeCanvas.height = canvas.height;
+
+		const toolButtons = Array.from(
+			root.querySelectorAll<HTMLButtonElement>("[data-rest-owl-tool]"),
+		);
+		const clearButton = root.querySelector<HTMLButtonElement>(
+			"[data-rest-owl-clear]",
+		)!;
+		const newButton = root.querySelector<HTMLButtonElement>("[data-rest-owl-new]")!;
+
+		let activeTool: Tool = "small";
+		let activeStroke: Stroke | null = null;
+		let circles: Circle[] = [];
+
+		function renderGuide() {
+			guideCtx!.clearRect(0, 0, guideCanvas!.width, guideCanvas!.height);
+			guideCtx!.fillStyle = "#ffffff";
+			guideCtx!.fillRect(0, 0, guideCanvas!.width, guideCanvas!.height);
+			circles.forEach((circle) => drawCircle(guideCtx!, circle));
+		}
+
+		function renderDrawing() {
+			ctx!.clearRect(0, 0, canvas!.width, canvas!.height);
+			ctx!.drawImage(committedCanvas, 0, 0);
+			if (activeStroke) {
+				fillStroke(ctx!, activeStroke, pencilTexture, smudgeCanvas);
+			}
+		}
+
+		function clearDrawing() {
+			activeStroke = null;
+			committedCtx!.clearRect(0, 0, committedCanvas.width, committedCanvas.height);
+			renderDrawing();
+		}
+
+		function makeNewCircles() {
+			circles = createCirclePair();
+			clearDrawing();
+			renderGuide();
+		}
+
+		function toCanvasPoint(event: PointerEvent): Point {
+			const rect = canvas!.getBoundingClientRect();
+			const pressure = event.pressure > 0 ? event.pressure : 0.5;
+
+			return [
+				((event.clientX - rect.left) / rect.width) * canvas!.width,
+				((event.clientY - rect.top) / rect.height) * canvas!.height,
+				pressure,
+			];
+		}
+
+		function addPoint(event: PointerEvent) {
+			if (!activeStroke) return;
+			const point = toCanvasPoint(event);
+			const previous = activeStroke.points.at(-1);
+			if (previous && previous[0] === point[0] && previous[1] === point[1]) return;
+			activeStroke.points.push(point);
+		}
+
+		function finishStroke(event: PointerEvent) {
+			if (!activeStroke) return;
+			addPoint(event);
+			fillStroke(committedCtx!, activeStroke, pencilTexture, smudgeCanvas);
+			activeStroke = null;
+			renderDrawing();
+		}
+
+		canvas.addEventListener("pointerdown", (event) => {
+			canvas.setPointerCapture(event.pointerId);
+			activeStroke = {
+				tool: activeTool,
+				points: [toCanvasPoint(event)],
+			};
+			renderDrawing();
+		});
+
+		canvas.addEventListener("pointermove", (event) => {
+			if (!activeStroke) return;
+			const events = event.getCoalescedEvents?.() ?? [event];
+			events.forEach(addPoint);
+			renderDrawing();
+		});
+
+		canvas.addEventListener("pointerup", finishStroke);
+		canvas.addEventListener("pointercancel", finishStroke);
+
+		toolButtons.forEach((button) => {
+			button.addEventListener("click", () => {
+				activeTool = button.dataset.restOwlTool as Tool;
+				toolButtons.forEach((candidate) => {
+					candidate.setAttribute("aria-pressed", String(candidate === button));
+				});
+			});
+		});
+
+		clearButton.addEventListener("click", clearDrawing);
+		newButton.addEventListener("click", makeNewCircles);
+
+		makeNewCircles();
+	});
+</script>
