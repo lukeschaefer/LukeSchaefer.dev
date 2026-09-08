@@ -1,0 +1,11 @@
+{
+	"name": "lukeschaefer.dev",
+	"install": "pnpm install --frozen-lockfile",
+	"terminals": [
+		{
+			"name": "astro-dev",
+			"command": "pnpm dev"
+		}
+	],
+	"ports": [4321]
+}
